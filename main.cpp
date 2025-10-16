@@ -1,4 +1,4 @@
-﻿//******** PRACTICA VISUALITZACIÓ GRÀFICA INTERACTIVA (Escola Enginyeria - UAB)
+//******** PRACTICA VISUALITZACIÓ GRÀFICA INTERACTIVA (Escola Enginyeria - UAB)
 //******** Entorn bàsic VS2022 MONOFINESTRA amb OpenGL 4.6, interfície GLFW 3.4, ImGui i llibreries GLM
 //******** Ferran Poveda, Marc Vivet, Carme Julià, Débora Gil, Enric Martí (Setembre 2025)
 // main.cpp : Definició de main
@@ -19,11 +19,20 @@
 #include "main.h"
 #include <GL/glew.h>  
 
-// --- Tamaño de sala dinámico ---
-float g_RoomHalfX = 12.0f;   // medio ancho X (la sala tendrá 2*HalfX)
-float g_RoomHalfZ = 12.0f;   // medio fondo Z
-float g_RoomHeight = 6.0f;    // alto Y
-bool  g_RoomOpenZ = true;    // pared +Z abierta (puerta grande)
+// Sala fija y grande
+constexpr float ROOM_HALF_X = 30.0f;   // medio ancho X
+constexpr float ROOM_HALF_Z = 30.0f;   // medio fondo Z
+constexpr float ROOM_HEIGHT = 8.0f;    // altura Y
+
+constexpr float ROOM_XMIN = -ROOM_HALF_X;
+constexpr float ROOM_XMAX = ROOM_HALF_X;
+constexpr float ROOM_ZMIN = -ROOM_HALF_Z;
+constexpr float ROOM_ZMAX = ROOM_HALF_Z;
+constexpr float ROOM_YMIN = 0.0f;
+constexpr float ROOM_YMAX = ROOM_HEIGHT;
+constexpr float FPV_RADIUS = 0.30f;
+
+bool g_RoomOpenZ = true; // pared +Z abierta (puerta grande)
 
 // --- Límites para colisiones (se derivan del tamaño actual) ---
 float g_RoomXMin, g_RoomXMax;
@@ -104,38 +113,12 @@ float g_FPVYaw = 0.0f, g_FPVPitch = 0.0f;
 float g_FPVSpeed = 3.0f, g_FPVSense = 0.12f;
 double g_TimePrev = 0.0;
 
-// Sala
-const float ROOM_XMIN = -4.0f, ROOM_XMAX = +4.0f;
-const float ROOM_ZMIN = -3.0f, ROOM_ZMAX = +3.0f;
-const float ROOM_YMIN = 0.0f, ROOM_YMAX = +3.0f;
-const float FPV_RADIUS = 0.30f;
-
 
 
 // --- FPV helpers ---
 void FPV_Update(float dt);
 void FPV_ApplyView(); // calcula ViewMatrix desde g_FPV* (lookAt)
 void FPV_SetMouseCapture(bool capture);
-
-static inline void UpdateRoomBoundsFromSize() {
-	g_RoomXMin = -g_RoomHalfX; g_RoomXMax = g_RoomHalfX;
-	g_RoomZMin = -g_RoomHalfZ; g_RoomZMax = g_RoomHalfZ;
-	g_RoomYMin = 0.0f;         g_RoomYMax = g_RoomHeight;
-}
-
-// Rehace el VAO de la sala con el tamaño actual y actualiza colisiones
-void SetRoomSizeAndRebuild(float halfX, float halfZ, float height) {
-	g_RoomHalfX = halfX;
-	g_RoomHalfZ = halfZ;
-	g_RoomHeight = height;
-	UpdateRoomBoundsFromSize();
-	CreateHabitacioVAO(g_RoomHalfX, g_RoomHalfZ, g_RoomHeight);
-
-	// si estás fuera después del cambio, te meto dentro
-	g_FPVPos.x = glm::clamp(g_FPVPos.x, g_RoomXMin + FPV_RADIUS, g_RoomXMax - FPV_RADIUS);
-	g_FPVPos.z = glm::clamp(g_FPVPos.z, g_RoomZMin + FPV_RADIUS, g_RoomZMax - FPV_RADIUS);
-	g_FPVPos.y = glm::clamp(g_FPVPos.y, g_RoomYMin + 1.7f, g_RoomYMax - 0.1f);
-}
 
 
 
@@ -176,9 +159,8 @@ bool g_SobelMaskPass = false; // TRUE solo mientras renderices la textura para S
 
 void InitGL()
 {
-
-	UpdateRoomBoundsFromSize();
-	CreateHabitacioVAO(g_RoomHalfX, g_RoomHalfZ, g_RoomHeight);
+	CreateHabitacioVAO(ROOM_HALF_X, ROOM_HALF_Z, ROOM_HEIGHT);
+	g_ShowRoom = true;
 
 // TODO: agregar aquí el código de construcción
 
@@ -693,9 +675,10 @@ void FPV_Update(float dt)
 	// Colisiones con sala
 	g_FPVPitch = glm::clamp(g_FPVPitch, -89.0f, 89.0f);
 
-	g_FPVPos.x = glm::clamp(g_FPVPos.x, g_RoomXMin + FPV_RADIUS, g_RoomXMax - FPV_RADIUS);
-	g_FPVPos.z = glm::clamp(g_FPVPos.z, g_RoomZMin + FPV_RADIUS, g_RoomZMax - FPV_RADIUS);
-	g_FPVPos.y = glm::clamp(g_FPVPos.y, g_RoomYMin + 1.7f, g_RoomYMax - 0.1f);
+	g_FPVPos.x = glm::clamp(g_FPVPos.x, ROOM_XMIN + FPV_RADIUS, ROOM_XMAX - FPV_RADIUS);
+	g_FPVPos.z = glm::clamp(g_FPVPos.z, ROOM_ZMIN + FPV_RADIUS, ROOM_ZMAX - FPV_RADIUS);
+	g_FPVPos.y = glm::clamp(g_FPVPos.y, ROOM_YMIN + 1.7f, ROOM_YMAX - 0.1f);
+
 
 }
 
@@ -1335,32 +1318,40 @@ void Barra_Estat()
 // Entorn VGI: Dibuixa el menú principal ImGui que controla colors i permet activar altres menús:
 //		- menú standard Imgui [show_demo_window()]
 //		- menú propi de l'aplicació EntornVGI [show_EntornVGI_window()]
+
+
+
 void draw_Menu_ImGui()
 {
-	// --- Frame ImGui ---
+	// --- Comienzo de frame ImGui ---
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-	// =========================
-	//  Panel superior FPV
-	// =========================
+	// =========================================================
+	//  Panel superior: Modo Primera Persona (WASD)
+	// =========================================================
 	if (ImGui::Checkbox("Modo Primera Persona (WASD)", &g_FPV)) {
 		if (g_FPV) {
-			// Forzamos perspectiva y reseteamos estado FPV
+			// Forzar perspectiva y resetear estado FPV
 			projeccio = PERSPECT;
-			g_FPVPos = glm::vec3(0.0f, 1.7f, 0.0f);
-			g_FPVYaw = 0.0f;
+
+			// Spawn cómodo: cerca de la pared -Z, a altura “humana”.
+			// (Usa ROOM_ZMIN/FPV_RADIUS para no nacer pegado a la pared)
+			g_FPVPos = glm::vec3(0.0f, 1.7f, ROOM_ZMIN + FPV_RADIUS + 1.0f);
+			g_FPVYaw = 0.0f;   // ajusta si tu “forward” tiene otra convención
 			g_FPVPitch = 0.0f;
-			FPV_SetMouseCapture(true); // también inicializa g_MouseLastX/Y
+
+			// Captura el ratón e inicializa g_MouseLastX/Y dentro de FPV_SetMouseCapture
+			FPV_SetMouseCapture(true);
 		}
 		else {
+			// Salir del modo FPV: soltar cursor (la cámara clásica la gestionas fuera si quieres)
 			FPV_SetMouseCapture(false);
 		}
 	}
 
-	ImGui::Checkbox("Sala abierta (+Z sin pared)", &g_RoomOpenZ);
-
+	// Controles FPV visibles solo cuando está activo
 	ImGui::SameLine();
 	if (g_FPV) {
 		ImGui::SliderFloat("Velocidad", &g_FPVSpeed, 0.5f, 10.0f, "%.1f m/s");
@@ -1377,17 +1368,16 @@ void draw_Menu_ImGui()
 		ImGui::TextUnformatted("WASD para moverte, raton para mirar, ESC alterna capturar/soltar el cursor.");
 	}
 
-	// Cuando estamos en FPV y cursor capturado, no pintamos otras ventanas grandes
+	// Cuando FPV está capturando ratón, ocultamos ventanas “grandes” para no interferir con el mouse
 	const bool blockOtherUi = g_FPV && g_FPVCaptureMouse;
 
-	// =========================
-	//  Ventanas demo / extra
-	// =========================
+	// =========================================================
+	//  Ventanas demo / extra (solo si no bloqueamos UI)
+	// =========================================================
 	if (!blockOtherUi && show_demo_window)
 		ImGui::ShowDemoWindow(&show_demo_window);
 
-	if (!blockOtherUi && show_another_window)
-	{
+	if (!blockOtherUi && show_another_window) {
 		ImGui::Begin("Another Window", &show_another_window);
 		ImGui::Text("Hello from another window!");
 		if (ImGui::Button("Close Me"))
@@ -1398,9 +1388,9 @@ void draw_Menu_ImGui()
 	if (!blockOtherUi && show_EntornVGI_window)
 		ShowEntornVGIWindow(&show_EntornVGI_window);
 
-	// =========================
+	// =========================================================
 	//  Status Menu (principal)
-	// =========================
+	// =========================================================
 	{
 		ImGui::Begin("Status Menu");
 
@@ -1410,34 +1400,33 @@ void draw_Menu_ImGui()
 		ImGui::Separator();
 		ImGui::Spacing();
 
-		// --- Información de cámara ---
+		// --- Cámara ---
 		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
 		ImGui::SeparatorText("CAMERA:");
 		ImGui::PopStyleColor();
 
 		if (g_FPV) {
-			ImGui::Text("FPV Pos      = (%.2f, %.2f, %.2f)", g_FPVPos.x, g_FPVPos.y, g_FPVPos.z);
+			ImGui::Text("FPV Pos       = (%.2f, %.2f, %.2f)", g_FPVPos.x, g_FPVPos.y, g_FPVPos.z);
 			ImGui::Text("FPV Yaw/Pitch = (%.1f, %.1f)", g_FPVYaw, g_FPVPitch);
 		}
 		else {
 			static float PV[4] = { 0.0f,0.0f,0.0f,1.0f };
 			cam_Esferica[0] = OPV.R; cam_Esferica[1] = OPV.alfa; cam_Esferica[2] = OPV.beta;
 
-			if (camera == CAM_NAVEGA) { PV[0] = opvN.x; PV[1] = opvN.y; PV[2] = opvN.z; }
+			if (camera == CAM_NAVEGA) {
+				PV[0] = opvN.x; PV[1] = opvN.y; PV[2] = opvN.z;
+			}
 			else {
 				if (Vis_Polar == POLARZ) {
 					PV[0] = OPV.R * cos(OPV.beta * PI / 180) * cos(OPV.alfa * PI / 180);
 					PV[1] = OPV.R * sin(OPV.beta * PI / 180) * cos(OPV.alfa * PI / 180);
 					PV[2] = OPV.R * sin(OPV.alfa * PI / 180);
 				}
-				else if (Vis_Polar == POLARY)
-				{
+				else if (Vis_Polar == POLARY) {
 					PV[0] = OPV.R * sin(OPV.beta * PI / 180) * cos(OPV.alfa * PI / 180);
 					PV[1] = OPV.R * sin(OPV.alfa * PI / 180);
-					PV[2] = OPV.R * cos(OPV.beta * PI / 180) * cos(OPV.alfa * PI / 180); // <-- aquí estaba el typo
+					PV[2] = OPV.R * cos(OPV.beta * PI / 180) * cos(OPV.alfa * PI / 180);
 				}
-
-				
 				else {
 					PV[0] = OPV.R * sin(OPV.alfa * PI / 180);
 					PV[1] = OPV.R * cos(OPV.beta * PI / 180) * cos(OPV.alfa * PI / 180);
@@ -1446,6 +1435,25 @@ void draw_Menu_ImGui()
 			}
 			ImGui::InputFloat3("Esferiques (R,alfa,beta)", cam_Esferica);
 			ImGui::InputFloat3("Cartesianes (PVx,PVy,PVz)", PV);
+		}
+
+		// --- Sala (solo checkbox de “abierta”) ---
+		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
+		ImGui::SeparatorText("SALA");
+		ImGui::PopStyleColor();
+
+		bool oldOpen = g_RoomOpenZ;
+		ImGui::Checkbox("Sala abierta (+Z sin pared)", &g_RoomOpenZ);
+		if (g_RoomOpenZ != oldOpen) {
+			// Re-crear índices del VAO de la habitación con tamaño fijo grande
+			CreateHabitacioVAO(ROOM_HALF_X, ROOM_HALF_Z, ROOM_HEIGHT);
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Centrar FPV")) {
+			g_FPVPos = glm::vec3(0.0f, 1.7f, 0.0f);
+			g_FPVYaw = 0.0f;
+			g_FPVPitch = 0.0f;
 		}
 
 		// --- Colores ---
@@ -1468,34 +1476,6 @@ void draw_Menu_ImGui()
 		ImGui::InputFloat3("Rotacio (Rx,Ry,Rz)", rota_ImGui);
 		float scal_ImGui[3] = { (float)TG.VScal.x,(float)TG.VScal.y,(float)TG.VScal.z };
 		ImGui::InputFloat3("Escala (Sx, Sy, Sz)", scal_ImGui);
-
-		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
-		ImGui::SeparatorText("SALA");
-		ImGui::PopStyleColor();
-
-		static float halfX = g_RoomHalfX;
-		static float halfZ = g_RoomHalfZ;
-		static float height = g_RoomHeight;
-
-		ImGui::SliderFloat("Half X", &halfX, 2.0f, 100.0f, "%.1f m");
-		ImGui::SliderFloat("Half Z", &halfZ, 2.0f, 100.0f, "%.1f m");
-		ImGui::SliderFloat("Altura", &height, 2.0f, 30.0f, "%.1f m");
-
-		bool openOld = g_RoomOpenZ;
-		ImGui::Checkbox("Sala abierta (+Z sin pared)", &g_RoomOpenZ);
-
-		if (ImGui::Button("Aplicar tamano sala")) {
-			SetRoomSizeAndRebuild(halfX, halfZ, height);
-		}
-		if (openOld != g_RoomOpenZ) {
-			// regenerar indices si cambias pared +Z on/off
-			CreateHabitacioVAO(g_RoomHalfX, g_RoomHalfZ, g_RoomHeight);
-		}
-		ImGui::SameLine();
-		if (ImGui::Button("Centrar FPV")) {
-			g_FPVPos = glm::vec3(0.0f, 1.7f, 0.0f);
-		}
-
 
 		// --- Obra Dinn ---
 		ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 0, 0, 255));
@@ -1527,10 +1507,14 @@ void draw_Menu_ImGui()
 		ImGui::End();
 	}
 
-	// --- Render ImGui ---
+	// --- Render de ImGui (si no lo haces en otro sitio del frame) ---
 	ImGui::Render();
-	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData()); // Descomenta si NO lo renderizas en otro sitio
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
+
+
+
+
 
 
 // Entorn VGI: Funció que mostra el menú principal de l'Entorn VGI amb els seus desplegables.
