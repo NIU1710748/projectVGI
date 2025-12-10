@@ -11,3 +11,5 @@
 /scenario-aislado
 *.zip
 /EntornVGI/x64
+src/main - cropped.cpp
+src/escenaJoc - cropped.cpp

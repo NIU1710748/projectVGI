@@ -3827,10 +3827,11 @@ void OnPaint(GLFWwindow* window)
 	glDisable(GL_BLEND);
 
 	// Color de fondo según modo
-	if (act_state == GameState::INSPECTING) glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Negro
-	else glClearColor(c_fons.r, c_fons.g, c_fons.b, 1.0f);   // Normal
+	if (act_state != GameState::INSPECTING)
+		glClearColor(c_fons.r, c_fons.g, c_fons.b, 1.0f);   // Normal
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	g_SobelMaskPass = false;
 	glUseProgram(shader_programID);
 
@@ -3851,60 +3852,48 @@ void OnPaint(GLFWwindow* window)
 			p.hitbox = GetAABBFromModelMatrix(p.M);
 	}
 
-	switch (projeccio)
+	if (act_state == GameState::INSPECTING)
+		//if (g_Inspecciona) 
 	{
-	case AXONOM:
-		configura_Escena();
-		dibuixa_Escena();
-		break;
+		// Render object on left half
+		int windowWidth = w / 2;
+		glViewport(0, 0, windowWidth, h);  // Left half of screen
+		glScissor(0, 0, windowWidth, h);
+		glEnable(GL_SCISSOR_TEST);
 
-	case ORTO:
-		ProjectionMatrix = Projeccio_Orto();
-		ViewMatrix = Vista_Ortografica(shader_programID, 0, OPV.R, c_fons, col_obj, objecte, mida, pas,
-			front_faces, oculta, test_vis, back_line,
+		// Clear left side
+		//glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, windowWidth, h, OPV.R);
+
+
+		ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
+			front_faces, true, test_vis, back_line,
 			ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
 			eixos, grid, hgrid);
+
 		configura_Escena();
 		dibuixa_Escena();
-		break;
 
-	case PERSPECT:
-		if (act_state == GameState::INSPECTING) 
-		//if (g_Inspecciona) 
-		{
-			ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, w, h, OPV.R);
+		// Right side
+		glViewport(windowWidth, 0, windowWidth, h);  // Right half
+		glScissor(windowWidth, 0, windowWidth, h);
 
-			GLdouble vpv[3] = { 0.0, 0.0, 1.0 };
-			if (camera == CAM_ESFERICA) {
-				n[0] = 0; n[1] = 0; n[2] = 0;
-				ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
-					front_faces, true, test_vis, back_line,
-					ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-					eixos, grid, hgrid);
-			}
-			else if (camera == CAM_NAVEGA) {
-				if (Vis_Polar == POLARZ) { vpv[0] = 0; vpv[1] = 0; vpv[2] = 1; }
-				else if (Vis_Polar == POLARY) { vpv[0] = 0; vpv[1] = 1; vpv[2] = 0; }
-				else { vpv[0] = 1; vpv[1] = 0; vpv[2] = 0; }
+		// Clear right side with dark gray
+		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-				ViewMatrix = Vista_Navega(shader_programID, opvN, n, vpv, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, true, pas,
-					front_faces, oculta, test_vis, back_line,
-					ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-					eixos, grid, hgrid);
-			}
-			else {
-				ViewMatrix = Vista_Geode(shader_programID, OPV_G, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
-					front_faces, oculta, test_vis, back_line,
-					ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-					eixos, grid, hgrid);
-			}
-		}
+		renderItemDescription(window, "Nombre Item", "Descripcion Item");
+
+		glDisable(GL_SCISSOR_TEST);
+	}
+	else
+	{
 		configura_Escena();
 		dibuixa_Escena();
-		break;
-
-	default:
-		break;
 	}
 
 	glUseProgram(0);
@@ -3917,7 +3906,17 @@ void OnPaint(GLFWwindow* window)
 	{
 		// 2.0) Preparació FBO
 		glBindFramebuffer(GL_FRAMEBUFFER, g_SobelFBO);
-		glViewport(0, 0, g_FBOW, g_FBOH);
+
+		if (act_state == GameState::INSPECTING) {
+			// For inspection mode, only render to left half
+			glViewport(0, 0, g_FBOW / 2, g_FBOH);
+			glScissor(0, 0, g_FBOW / 2, g_FBOH);
+			glEnable(GL_SCISSOR_TEST);
+		}
+		else {
+			glViewport(0, 0, g_FBOW, g_FBOH);
+		}
+
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 		glDisable(GL_SCISSOR_TEST);
@@ -4012,6 +4011,8 @@ void OnPaint(GLFWwindow* window)
 		configura_Escena();
 		dibuixa_Escena();
 
+
+
 		// Desactiva màscara
 		g_SobelMaskPass = false;
 		glUniform1i(glGetUniformLocation(shader_programID, "uSobelMaskPass"), GL_FALSE);
@@ -4021,7 +4022,17 @@ void OnPaint(GLFWwindow* window)
 		// 3) COMPOSICIÓ: QUAD del FBO sobre el backbuffer (alpha blend)
 		// ────────────────────────────────────────────────────────────────────
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, w, h);
+
+		if (act_state == GameState::INSPECTING) {
+			// Only apply Sobel to left half in inspection mode
+			glViewport(0, 0, w / 2, h);
+			glScissor(0, 0, w / 2, h);
+			glEnable(GL_SCISSOR_TEST);
+		}
+		else {
+			glViewport(0, 0, w, h);
+		}
+
 		glDisable(GL_DEPTH_TEST);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -4039,6 +4050,11 @@ void OnPaint(GLFWwindow* window)
 		glUseProgram(0);
 		glDisable(GL_BLEND);
 		glEnable(GL_DEPTH_TEST);
+
+		if (act_state == GameState::INSPECTING)
+		{
+			glDisable(GL_SCISSOR_TEST);
+		}
 	}
 
 	// ────────────────────────────────────────────────────────────────────────
@@ -4070,7 +4086,7 @@ void dibuixa_Escena()
 	if (!g_SobelMaskPass)
 	{
 		// 1) Skybox (opcional)
-		if (SkyBoxCube)
+		if (SkyBoxCube && act_state != GameState::INSPECTING)
 		{
 			glUseProgram(skC_programID);
 
@@ -4094,7 +4110,8 @@ void dibuixa_Escena()
 
 		// 2) Eixos/Grid
 		//dibuixa_Eixos(eixos_programID, eixos, eixos_Id, grid, hgrid, ProjectionMatrix, ViewMatrix);
-
+		if (act_state == GameState::INSPECTING)
+			printf("ShowRoom: %d\n", g_ShowRoom);
 		// 3) Sala + props 
 		if (g_ShowRoom)
 		{
@@ -4162,11 +4179,16 @@ void dibuixa_Escena()
 
 
 		}
-
-		DibuixaAigua();
+		if (act_state != GameState::INSPECTING)
+		{
+			DibuixaAigua();
+		}
 	}
 
-	DibuixaMatapatos(shader_programID);
+	if (act_state != GameState::INSPECTING)
+	{
+		DibuixaMatapatos(shader_programID);
+	}
 
 	dibuixa_EscenaGL(
 		shader_programID,
@@ -7506,7 +7528,7 @@ void HandleEscapeKey(GLFWwindow* window)
 	// (Opcional: podries fer aquí que ESC tanqui l'inventari, si vols)
 
 	// 2) Toggle GAME <-> MENU
-	if ((act_state == GameState::GAME || act_state == GameState::INSPECTING))
+	if (act_state == GameState::GAME)
 	{
 		act_state = GameState::MENU;
 		FPV_SetMouseCapture(false);
@@ -7600,7 +7622,7 @@ void UpdateGamepadActions(GLFWwindow* window)
 		return;
 
 	// Només té sentit la majoria de coses en mode joc
-	if ((act_state == GameState::GAME || act_state == GameState::INSPECTING))
+	if (act_state == GameState::GAME)
 	{
 		// X → Interactuar (E)
 		bool xJustPressed = (g_Pad.btnX && !g_PadPrev.btnX);
@@ -7672,7 +7694,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 	// ─────────────────────────────────────────────────────────────────
 	// Gestió específica quan estem al joc (GameState::GAME)
 	// ─────────────────────────────────────────────────────────────────
-	if ((act_state == GameState::GAME || act_state == GameState::INSPECTING))
+	if (act_state == GameState::GAME)
 	{
 		// Bloqueja els shortcuts Shift+W/A/S/D quan estem en FPV
 		if ((action == GLFW_PRESS || action == GLFW_REPEAT) && g_FPV && (mods & GLFW_MOD_SHIFT)) {
@@ -11198,7 +11220,7 @@ int main(void)
 				InitHandQuad();
 				renderLoading(window, 0.2f);
 
-				InitHandAnimations();
+				//InitHandAnimations();
 				renderLoading(window, 0.4f);
 
 				ApplyPhongObraDinnDefaults();
@@ -11229,7 +11251,6 @@ int main(void)
 			FPV_SetMouseCapture(true);
 			g_FVP_move = true;
 
-			printf("Sobel actual: %d\n", g_SobelOn);
 			// Events de GLFW
 			glfwPollEvents();
 
@@ -11245,7 +11266,7 @@ int main(void)
 			glfwMakeContextCurrent(window);
 			//glfwSwapBuffers(window);
 
-			renderItemDescription(window, "Nombre Item", "Descripcion Item");
+			
 		}
 		
 		else if (act_state == GameState::GAME)

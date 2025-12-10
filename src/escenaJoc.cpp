@@ -149,12 +149,81 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 			return; // o bé dibuixa l'escena normal, com vulguis
 		}
 
+		// Use shader
+		glUseProgram(sh_programID);
+
+		// --- Ensure camera + projection uniforms are sent to the shader ---
+		// MatriuVista is the view matrix passed to this function; ProjectionMatrix is global set before calling.
+		glUniformMatrix4fv(glGetUniformLocation(sh_programID, "viewMatrix"), 1, GL_FALSE, &MatriuVista[0][0]);
+		//glUniformMatrix4fv(glGetUniformLocation(sh_programID, "projectionMatrix"), 1, GL_FALSE, &ProjectionMatrix[0][0]);
+
+		// --- Ensure common lighting / material uniforms are present (mirrors normal scene) ---
+		// Ambient Light Model (use same defaults as dibuixa_Escena)
+		GLint locLM = glGetUniformLocation(sh_programID, "LightModelAmbient");
+		if (locLM != -1) glUniform4f(locLM, 0.35f, 0.35f, 0.35f, 1.0f);
+
+		// Headlight uniforms if shader expects them (optional: avoids missing uniform warnings)
+		GLint locHeadOn = glGetUniformLocation(sh_programID, "uHeadlightOn");
+		if (locHeadOn != -1) glUniform1i(locHeadOn, GL_FALSE);
+
+		// --- Textures: preserve your existing texture setup ----
+		if (texturID[0] != 0)
+		{
+			SetTextureParameters(0, texturID[0], true, true, textur_map, false);
+			glUniform1i(glGetUniformLocation(sh_programID, "textur"), GL_TRUE);
+			glUniform1i(glGetUniformLocation(sh_programID, "modulate"), GL_TRUE);
+		}
+		else
+		{
+			glUniform1i(glGetUniformLocation(sh_programID, "textur"), GL_FALSE);
+			glUniform1i(glGetUniformLocation(sh_programID, "modulate"), GL_FALSE);
+
+			// Set explicit material colors when no texture (keeps your previous fallback)
+			CColor obj_color = { 0.8f, 0.8f, 0.8f, 1.0f };
+			bool sw_mat_local[5] = { false, true, true, false, true };
+			SeleccionaColorMaterial(sh_programID, obj_color, sw_mat_local);
+		}
+
+		// Obra Dinn uniforms (you already had these — keep them)
+		glUniform1i(glGetUniformLocation(sh_programID, "uObraDinnOn"), g_ObraDinnOn ? GL_TRUE : GL_FALSE);
+		glUniform1f(glGetUniformLocation(sh_programID, "uThreshold"), g_UmbralObraDinn);
+		glUniform1f(glGetUniformLocation(sh_programID, "uDitherAmp"), g_DitherAmp);
+		glUniform1i(glGetUniformLocation(sh_programID, "uGammaMap"), g_GammaMap ? GL_TRUE : GL_FALSE);
+
+		// Set material properties for the inspected item (reusing sw_mat from caller)
+		SeleccionaColorMaterial(sh_programID, col_object, sw_mat);
+
+		// Model matrix for the inspected object (you already set this)
 		ModelMatrix = MatriuTG;
 		glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
+
+		// Normal matrix must be consistent with view*model
 		NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
 		glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
 
+		// Finally draw the inspected object (this uses the object's own VAO/materials)
 		objecteOBJ->draw_TriVAO_OBJ(sh_programID);
+
+
+		//OPTIONAL: Draw wireframe overlay for edges
+		bool forceBorder = false;
+		if (forceBorder)
+		{
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			glLineWidth(1.5f);
+			glDisable(GL_TEXTURE_2D);
+
+			// Set wireframe color (e.g., dark edges)
+			CColor wire_color = { 0.1f, 0.1f, 0.1f, 1.0f };
+			bool wire_mat[5] = { true, true, false, false, false }; // Emissive only
+			SeleccionaColorMaterial(sh_programID, wire_color, wire_mat);
+
+			// Draw wireframe version
+			objecteOBJ->draw_TriVAO_OBJ(sh_programID);
+
+			// Restore polygon mode
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		}
 	}
 
 	else

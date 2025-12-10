@@ -590,10 +590,10 @@ void renderItemDescription(GLFWwindow* window, const std::string& itemName, cons
     glfwGetWindowSize(window, &display_w, &display_h);
 
     // Mida de la finestra de descripció (percentatge de la pantalla)
-    ImVec2 windowSize(display_w * 0.4f, display_h * 0.3f);
+    ImVec2 windowSize(display_w * 0.4f, display_h * 0.7f);
 
     // Posicionar al centre de la pantalla
-    ImVec2 windowPos((display_w - windowSize.x) * 0.5f, (display_h - windowSize.y) * 0.5f);
+    ImVec2 windowPos(display_w - windowSize.x - 40.0f, (display_h - windowSize.y) * 0.5f);
 
     // Estil de la finestra (fons semi-transparent amb vores arrodonides)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
