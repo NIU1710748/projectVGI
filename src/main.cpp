@@ -648,7 +648,6 @@ void UpdatePadMouseForImGui(GLFWwindow* window)
 		g_PadMousePos.x += ax * g_PadMouseSpeed * dt_real;
 		g_PadMousePos.y -= ay * g_PadMouseSpeed * dt_real;
 
-
 		// Clamp dins la finestra
 		g_PadMousePos.x = glm::clamp(g_PadMousePos.x, 0.0f, float(ww - 1));
 		g_PadMousePos.y = glm::clamp(g_PadMousePos.y, 0.0f, float(hh - 1));
@@ -1044,7 +1043,7 @@ void StartHandAnimation(int id)
 		g_PendingEndgameFromBoat = false;
 		StartEndgameCutscene();
 		return;
-	}
+}
 
 
 	switch (id)
@@ -1094,33 +1093,35 @@ static std::deque<int> g_CuaAnimMans;
 static bool HiHaAnimEnCua()
 {
 	return (g_QueuedHandAnim >= 0) || (!g_CuaAnimMans.empty());
-}
+	}
 
 static void BuidaCuaAnimMans()
-{
+		{
 	g_CuaAnimMans.clear();
 	g_QueuedHandAnim = -1;   // por si algo legacy estaba en cola
-}
+		}
 
 // Encola 1 anim. Si no hay nada reproduciéndose, arranca ya.
 static void EncolaAnimMans(int animId)
-{
+		{
 	if (animId < 0) return;
 
 	if (!g_HandPlaying && g_CuaAnimMans.empty())
-	{
+		{
 		StartHandAnimation(animId);
 		return;
-	}
+		}
 
 	g_CuaAnimMans.push_back(animId);
-}
+		}
 
 // Overload para permitir EncolaAnimMans({15,16,17,18})
 static void EncolaAnimMans(std::initializer_list<int> ids)
 {
 	for (int id : ids) EncolaAnimMans(id);
-}
+	}
+
+
 
 
 
@@ -1265,6 +1266,8 @@ float       g_FPVSpeed = 3.0f;
 float       g_FPVSense = 0.12f;
 double      g_TimePrev = 0.0;
 
+glm::vec3 g_SphericalCamPos(0.0f);
+
 // Sprint
 float g_SprintMult = 2.0f;
 bool  g_IsSprinting = false;
@@ -1278,7 +1281,6 @@ const float ROOM_XMIN = -4.0f, ROOM_XMAX = +4.0f;
 const float ROOM_ZMIN = -3.0f, ROOM_ZMAX = +3.0f;
 const float ROOM_YMIN = 0.0f, ROOM_YMAX = +3.0f;
 const float FPV_RADIUS = 0.30f;
-
 
 
 enum class PlantaBarco { BAIXA = 0, MITJA = 1, SUPERIOR = 2 };
@@ -1569,6 +1571,7 @@ void DibuixaMapaPalanquesOverlay()
 // ─────────────────────────────────────────────────────────────────────────────
 // HUD d'interaccio contextual (portes / escales / barca)
 // ─────────────────────────────────────────────────────────────────────────────
+
 void DibuixaHUDInteraccioContextual()
 {
 	if (!g_InteraccioDisponible) return;
@@ -1590,8 +1593,8 @@ void DibuixaHUDInteraccioContextual()
 		ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0.75f));
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.75f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
 
 	ImGui::Begin("HUD_InteraccioContextual", nullptr, flags);
 
@@ -2054,7 +2057,7 @@ void DibuixaInventari()
 
 		colActual++;
 		if (colActual < cols) ImGui::SameLine(0.0f, horizontalPadding);
-		else
+		else 
 		{
 			colActual = 0;
 			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + verticalPadding);
@@ -2619,7 +2622,6 @@ static void InitZonesSobel()
 
 
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Entrar i sortir del mode FPV (reutilitzable des d’InitGL i des del checkbox)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2650,7 +2652,7 @@ static void EnterFPV() {
 		else if (obj->getName() == "palanca6_white_down.obj")  obj->changeRendering(false);
 		else if (obj->getName() == "palanca7_black_down.obj")  obj->changeRendering(false);
 		else if (obj->getName() == "palanca8_white_down.obj")  obj->changeRendering(false);
-	}
+		}
 
 	PrintPalancasPositionsFromModels();
 
@@ -2683,9 +2685,6 @@ static void ExitFPV() {
 	g_ShowRoom = false;
 	ClearProps();
 }
-
-
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POSTPROC: SOBEL + quad de pantalla completa
@@ -2997,7 +2996,7 @@ void ActualitzaMatapatos(float dt)
 
 		AturaMatapatos();
 	}
-
+	
 }
 
 
@@ -4120,7 +4119,6 @@ void ToggleFlashlightWithAnim()
 }
 
 
-
 void FPV_UpdateMovement(GLFWwindow* window, float dt)
 {
 	if (!g_FPV) return;
@@ -4129,7 +4127,6 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 	if (cofre_on) return;
 	if (cofre_final_on)return;
 	if (g_EndgameActive) return;
-
 
 	bool handBlocking = false;
 	if (g_HandPlaying && (g_CurrentHandAnim == 12 || g_CurrentHandAnim == 14))
@@ -4243,7 +4240,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 	{
 		moveDir = glm::normalize(moveDir);
 		glm::vec3 nextPos = g_FPVPos + moveDir * currentSpeed * dt;
-		CheckPlayerSlidingCollisionNew(nextPos, FPV_RADIUS, g_FPVPos, g_playerHeight, vHitboxOBJ);
+			CheckPlayerSlidingCollisionNew(nextPos, FPV_RADIUS, g_FPVPos, g_playerHeight, vHitboxOBJ);
 	}
 
 	// ── Pasos (tu sistema complet) ─────────────────────────────────────────
@@ -4266,7 +4263,6 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 		}
 		else stepCooldown -= dt;
 	}
-
 
 	// ── Head-Bobbing ────────────────────────────────────────────────────────
 	{
@@ -4453,14 +4449,14 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 					if (dinsZona3D(g_FPVPos, g_PosPortaMitjaCapAbaix, g_RadiPortaMitjaCapAbaix, halfH))
 					{
 						g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PORTA_CAPABAIX;
-					}
-				}
+			}
+		}
 				if (!portes_obertes[2]) //pattata
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaMitjaCapAdalt, g_RadiPortaMitjaCapAdalt, halfH))
 					{
 						g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PORTA_CAPADALT;
-					}
+	}
 				}
 
 				if (!portes_obertes[1]) //pattata
@@ -4482,17 +4478,17 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 				if (dinsZona3D(g_FPVPos, g_PosPalanca_1, g_RadiPalancas, halfH)) // PALANCAZZZ  falten les 7 demes, nomes canvia TipusIteraccioContext, i el g_PosPorta i g_posRadio
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_1;
-				}
+			}
 
 				if (dinsZona3D(g_FPVPos, g_PosPalanca_2, g_RadiPalancas, halfH))
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_2;
-				}
+		}
 
 				if (dinsZona3D(g_FPVPos, g_PosPalanca_3, g_RadiPalancas, halfH))
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_3;
-				}
+	}
 
 				if (dinsZona3D(g_FPVPos, g_PosPalanca_4, g_RadiPalancas, halfH))
 				{
@@ -4521,7 +4517,6 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 			}
 		}
 	}
-
 	// ── Dispars / Raycast ───────────────────────────────────────────────────
 	ProcessaDisparMatapatos(window);
 	RaycastFPV(g_FPVYaw, g_FPVPitch, g_FPVPos);
@@ -4547,8 +4542,8 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 		else
 		{
 			g_MapaPalanquesInteractuable = false;
-		}
 	}
+}
 }
 
 
@@ -4808,146 +4803,55 @@ void OnPaint(GLFWwindow* window, float dt)
 	glDisable(GL_BLEND);
 
 	// Color de fondo según modo
-	if (g_Inspecciona) glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Negro
-	else glClearColor(c_fons.r, c_fons.g, c_fons.b, 1.0f);   // Normal
+	glClearColor(c_fons.r, c_fons.g, c_fons.b, 1.0f);   // Normal
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	g_SobelMaskPass = false;
 	glUseProgram(shader_programID);
 
-	// ------------------------------------------------------------------------
-	// 5. CÁLCULO DE MATRICES (AQUÍ ESTÁ LA CORRECCIÓN CLAVE)
-	// ------------------------------------------------------------------------
-
-	// Declaramos 'vpv' AQUÍ ARRIBA para evitar el error C2361
-	GLdouble vpv[3] = { 0.0, 0.0, 1.0 };
-
-	// Forzamos el cálculo de la Proyección Perspectiva por defecto con (w, h)
-	// Así, si entramos en 'case PERSPECT' o 'g_Inspecciona', la matriz ya está limpia.
-	if (projeccio == PERSPECT || g_Inspecciona || g_FPV) {
-		ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, w, h, OPV.R);
-	}
-	else if (projeccio == ORTO) {
-		ProjectionMatrix = Projeccio_Orto();
-	}
-
-	// ------------------------------------------------------------------------
-	// 6. DIBUJAR ESCENA SEGÚN MODO
-	// ------------------------------------------------------------------------
-
-	if (g_Inspecciona)
-	{
-		// === MODO INSPECCIÓN ===
-
-		// 1. Limpieza Fondo
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// 2. Inputs
-		UpdateInspectionInput(window, dt);
-
-		// 3. Proyección
+	// ─ Càmera FPV (si escau)
+	
+	if (g_FPV) {
+		// Projecció a mida de finestra
 		ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, w, h, OPV.R);
 
-		// 4. VIEW MATRIX (CÁMARA FIJA)
-		// Solo trasladamos hacia atrás para el Zoom. NO rotamos la cámara.
-		glm::mat4 view = glm::mat4(1.0f);
-		view = glm::translate(view, glm::vec3(0.0f, 0.0f, -g_InspectZoom));
-
-		ViewMatrix = view;
-
-		// 5. Enviar matrices
-		glUniformMatrix4fv(glGetUniformLocation(shader_programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(ViewMatrix));
-		glUniformMatrix4fv(glGetUniformLocation(shader_programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
-
-		// 6. DIBUJAR (El objeto rotará dentro de esta función)
-		dibuixa_Solo_Objeto();
-	}
-	else
-	{
-		// === MODO JUEGO NORMAL ===
-
-		// Si estamos en FPV, sobreescribimos la lógica
-		if (g_FPV) {
-
-			if (g_EndgameActive) {
-				UpdateEndgameCutscene(dt);   // controla yaw/pitch y anims
-				FPV_ApplyView();
-			}
-			else {
-				FPV_UpdateCamera(window, dt);
-				FPV_UpdateMovement(window, dt);
-				FPV_ApplyView();
-				ActualitzaSobelHighlight();
-			}
-
-
-
-			// Actualizar hitboxes
-			for (auto& p : g_Props) p.hitbox = GetAABBFromModelMatrix(p.M);
+		if (g_EndgameActive) {
+			UpdateEndgameCutscene(dt);   // controla yaw/pitch y anims
+			FPV_ApplyView();
 		}
-		else
-		{
-			// Si NO es FPV, calculamos la ViewMatrix según el tipo de cámara
-			switch (projeccio)
-			{
-			case AXONOM:
-				// Axonometrica no usa ViewMatrix estándar normalmente, configura escena directo
-				break;
+		else {
+			FPV_UpdateCamera(window, dt);
+			FPV_UpdateMovement(window, dt);
 
-			case ORTO:
-				ViewMatrix = Vista_Ortografica(shader_programID, 0, OPV.R, c_fons, col_obj, objecte, mida, pas,
-					front_faces, oculta, test_vis, back_line,
-					ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-					eixos, grid, hgrid);
-				break;
-
-			case PERSPECT:
-				// Aquí usamos la variable 'vpv' declarada arriba (sin re-declararla)
-				if (camera == CAM_ESFERICA) {
-					n[0] = 0; n[1] = 0; n[2] = 0;
-					ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
-						front_faces, true, test_vis, back_line,
-						ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-						eixos, grid, hgrid);
-				}
-				else if (camera == CAM_NAVEGA) {
-					if (Vis_Polar == POLARZ) { vpv[0] = 0; vpv[1] = 0; vpv[2] = 1; }
-					else if (Vis_Polar == POLARY) { vpv[0] = 0; vpv[1] = 1; vpv[2] = 0; }
-					else { vpv[0] = 1; vpv[1] = 0; vpv[2] = 0; }
-
-					ViewMatrix = Vista_Navega(shader_programID, opvN, n, vpv, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, true, pas,
-						front_faces, oculta, test_vis, back_line,
-						ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-						eixos, grid, hgrid);
-				}
-				else {
-					ViewMatrix = Vista_Geode(shader_programID, OPV_G, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
-						front_faces, oculta, test_vis, back_line,
-						ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-						eixos, grid, hgrid);
-				}
-				break;
-			}
+		// Vista des de FPV
+			FPV_ApplyView();
+			ActualitzaSobelHighlight();
 		}
 
-		// Finalmente dibujamos la escena normal
-		configura_Escena();
-		dibuixa_Escena();
+
+
+		// Actualizar hitboxes
+		for (auto& p : g_Props) p.hitbox = GetAABBFromModelMatrix(p.M);
 	}
 
+	//if (g_Inspecciona)
+	//{
+	//	ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, w, h, OPV.R);
+
+	//	ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
+	//		front_faces, true, test_vis, back_line,
+	//		ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
+	//		eixos, grid, hgrid);
+	//}
+	configura_Escena();
+	dibuixa_Escena();
 	glUseProgram(0);
 
-	// ------------------------------------------------------------------------
-	// 7. EFECTO SOBEL (Post-Proceso)
-	// ------------------------------------------------------------------------
-	// NOTA: Desactivamos Sobel si estamos inspeccionando para evitar conflictos visuales simples
-	// ------------------------------------------------------------------------
-// 7. EFECTO SOBEL (Post-Proceso)  -> 2 PASADAS: negro (todo) + amarillo (solo target)
-// ------------------------------------------------------------------------
-	if (useSobel && !g_Inspecciona)
+	// ────────────────────────────────────────────────────────────────────────
+	// 2) SOBEL: FBO amb PRE-PASS DE PROFUNDITAT + MÀSCARA D’OBJECTE
+	// ────────────────────────────────────────────────────────────────────────
+	if (useSobel)
 	{
-
 		// =========================================================
 		// 0) DEPTH PREPASS (SIN BLIT): rellenamos depth del SobelFBO
 		// =========================================================
@@ -4962,15 +4866,18 @@ void OnPaint(GLFWwindow* window, float dt)
 		// Limpiamos SOLO depth (no hace falta tocar color aquí)
 		glClear(GL_DEPTH_BUFFER_BIT);
 
-		// Matrices correctas para el tamaño del FBO (IMPORTANTE)
-		if (projeccio == PERSPECT || g_FPV) {
-			ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, g_FBOW, g_FBOH, OPV.R);
+		// Mateixa càmera que al pas 1; per PERSPECT cal projecció a mida del FBO
+		ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, g_FBOW, g_FBOH, OPV.R);
+		if (g_FPV) {
+			FPV_ApplyView();
 		}
-		else if (projeccio == ORTO) {
-			ProjectionMatrix = Projeccio_Orto();
+		else 
+		{
+			ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
+				front_faces, oculta, test_vis, back_line,
+				ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
+				eixos, grid, hgrid, g_SphericalCamPos);
 		}
-
-		if (g_FPV) FPV_ApplyView();
 
 		glUseProgram(shader_programID);
 		glUniformMatrix4fv(glGetUniformLocation(shader_programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
@@ -5093,6 +5000,7 @@ void OnPaint(GLFWwindow* window, float dt)
 
 
 
+
 // configura_Escena: Funcio que configura els parametres de Model i dibuixa les primitives OpenGL dins classe Model
 void configura_Escena()
 {
@@ -5143,13 +5051,13 @@ void DibuixaJocPalanques()// PALANCAZZZ
 // dibuixa_Escena: Funció que crida al dibuix dels diferents elements de l'escena
 void dibuixa_Escena()
 {
-
+	
 
 	// ===== PASADA NORMAL: skybox / eixos / sala+props =====
 	if (!g_SobelMaskPass)
 	{
 		// 1) Skybox (opcional)
-		if (SkyBoxCube)
+		if (SkyBoxCube && !g_Inspecciona)
 		{
 			glUseProgram(skC_programID);
 
@@ -5173,7 +5081,7 @@ void dibuixa_Escena()
 
 		// 2) Eixos/Grid
 		//dibuixa_Eixos(eixos_programID, eixos, eixos_Id, grid, hgrid, ProjectionMatrix, ViewMatrix);
-
+		
 		// 3) Sala + props 
 		if (g_ShowRoom)
 		{
@@ -5209,19 +5117,40 @@ void dibuixa_Escena()
 			glUniform4i(loc("sw_intensity"), 1, 1, 1, 0);
 
 			// --- Linterna FPV (uniforms) ---
-			const bool headlightOn = (g_FPV && g_HeadlightEnabled);
+			const bool headlightOn = ((g_FPV && g_HeadlightEnabled) || g_Inspecciona);
 			glUniform1i(loc("uHeadlightOn"), headlightOn ? GL_TRUE : GL_FALSE);
 
-			if (headlightOn) {
-				// dirección de mirada desde yaw/pitch globales
-				const float cy = cosf(glm::radians(g_FPVYaw));
-				const float sy = sinf(glm::radians(g_FPVYaw));
-				const float cp = cosf(glm::radians(g_FPVPitch));
-				const float sp = sinf(glm::radians(g_FPVPitch));
-				const glm::vec3 front = glm::normalize(glm::vec3(cy * cp, sp, sy * cp));
+			if (headlightOn)
+			{
+				glm::vec3 camPos;
+				glm::vec3 dir;
 
-				glUniform3f(loc("uCameraPos"), g_FPVPos.x, g_FPVPos.y, g_FPVPos.z);
-				glUniform3f(loc("uHeadDir"), front.x, front.y, front.z);
+				if (g_Inspecciona)
+				{
+					// --- INSPECTION MODE LIGHT ---  
+					// camera position = spherical cam position
+					camPos = g_SphericalCamPos;
+
+					// object is centered at origin in inspection mode
+					glm::vec3 target(0.0f, 0.0f, 0.0f);
+
+					// direction from camera -> object
+					dir = glm::normalize(target - camPos);
+				}
+				else
+				{
+					// --- NORMAL FPV LIGHT ---  
+					camPos = g_FPVPos;
+
+					const float cy = cosf(glm::radians(g_FPVYaw));
+					const float sy = sinf(glm::radians(g_FPVYaw));
+					const float cp = cosf(glm::radians(g_FPVPitch));
+					const float sp = sinf(glm::radians(g_FPVPitch));
+					dir = glm::normalize(glm::vec3(cy * cp, sp, sy * cp));
+				}
+
+				glUniform3f(loc("uCameraPos"), camPos.x, camPos.y, camPos.z);
+				glUniform3f(loc("uHeadDir"), dir.x, dir.y, dir.z);
 				glUniform1f(loc("uHeadCutoff"), cosf(glm::radians(15.0f)));
 				glUniform3f(loc("uHeadColor"), 1.0f, 1.0f, 1.0f);
 			}
@@ -5241,11 +5170,12 @@ void dibuixa_Escena()
 
 
 		}
-
-		DibuixaAigua();
+		if (!g_Inspecciona)
+			DibuixaAigua();
+		
 	}
 
-	if (!(g_SobelMaskPass && !g_SobelOnlyName.empty()))
+	if (!g_Inspecciona)
 		DibuixaMatapatos(shader_programID);
 
 	dibuixa_EscenaGL(
@@ -5553,7 +5483,7 @@ void DibuixaHUDCofreFinal()
 		}
 		else
 			g_ShowReward = false;
-	}
+}
 
 	if (cofre_final_on)
 		renderCofreFinal(window);
@@ -5620,8 +5550,8 @@ void draw_scene()
 	g_UsePadMouse = (cofre_on || g_MapaPalanquesObrit || g_InventariObert || cofre_final_on);
 
 	ImGuiIO& io = ImGui::GetIO();
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; 
 
 	if (g_UsePadMouse)
 	{
@@ -5645,7 +5575,7 @@ void draw_scene()
 
 
 	if (showHUD_Gameplay) {
-		renderCronometre(window);
+	renderCronometre(window);
 		renderCandelabre(window, g_HeadlightEnabled);
 		DibuixaHUDInteraccioContextual();
 
@@ -8621,14 +8551,12 @@ void HandleInteract(GLFWwindow* window)
 		return;
 	}
 
-
 	// 2) Si el document del terra és interactuable → obrir el mapa
 	if (g_MapaPalanquesInteractuable && !g_MapaPalanquesObrit)
 	{
 		ToggleMapaPalanquesAmbMans(window);
 		return;
 	}
-
 
 	// 3) Matapatos: iniciar minijoc
 	if (g_MatapatosInteractuable &&
@@ -8734,7 +8662,7 @@ void HandleInteract(GLFWwindow* window)
 			}
 			return;
 		}
-
+			
 		case TipusInteraccioContext::PORTA_CAPABAIX:
 		{
 			if (joc_quadres_finalitzat)
@@ -8748,7 +8676,7 @@ void HandleInteract(GLFWwindow* window)
 				g_FVP_move = false;
 
 				StartHandAnimation(10); // empujar puerta
-			}
+		}
 		}
 		break;
 
@@ -8947,11 +8875,11 @@ void ToggleMapaPalanquesAmbMans(GLFWwindow* window)
 	}
 
 	// TANCAR
-	g_MapaPalanquesObrit = false;
+		g_MapaPalanquesObrit = false;
 	FPV_SetMouseCapture(true);
 
-	if (!g_HandPlaying)
-		StartHandAnimation(HAND_ANIM_MAPA_TANCAR);
+		if (!g_HandPlaying)
+			StartHandAnimation(HAND_ANIM_MAPA_TANCAR);
 
 	//PlaySoundOnce(ID_CLOSE_BOOK); // si tienes
 	fprintf(stderr, "[MAPA PALANQUES] Tancant (amb anim)\n");
@@ -8996,7 +8924,7 @@ void UpdateGamepadActions(GLFWwindow* window)
 		{
 			if (g_EstatMatapatos != EstatMatapatos::OFF) AturaMatapatos();
 			else HandleEscapeKey(window);
-		}
+			}
 
 		// START → MENU <-> GAME
 		bool startJustPressed = (g_Pad.btnStart && !g_PadPrev.btnStart);
@@ -9207,7 +9135,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				return;
 			}
 			// 1) Si el mapa de palanques està obert → tancar-lo
-			// 1) Si el mapa de palanques està obert → tancar-lo
+// 1) Si el mapa de palanques està obert → tancar-lo
 // 1) Si el mapa de palanques està obert → tancar-lo
 			if (g_MapaPalanquesObrit)
 			{
@@ -9222,7 +9150,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 					StartHandAnimation(HAND_ANIM_MAPA_TANCAR);
 					//PlaySoundOnce(ID_CLOSE_BOOK);
 				}
-
+					
 
 				return;
 			}
@@ -9369,19 +9297,19 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				{
 					if (joc_quadres_finalitzat)
 					{
-						portes_obertes[3] = true;
-						for (COBJModel* obj : vObOBJ)
-						{
-							if (obj->getName() == "puerta4.obj") obj->changeRendering(false);
-							if (obj->getName() == "puerta4_open.obj") obj->changeRendering(true);
-						}
+					portes_obertes[3] = true;
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "puerta4.obj") obj->changeRendering(false);
+						if (obj->getName() == "puerta4_open.obj") obj->changeRendering(true);
+					}
 						for (auto* hitbox : vHitboxOBJ)
 							if (hitbox->getName() == "HITBOX_WALL6_puerta.obj") //Esta es la puerta del cofre de figuras
 								hitbox->setHitboxActive(false);
 
-						StartHandAnimation(10);
+					StartHandAnimation(10);
 						idx_clue = 2;
-					}
+				}
 				}
 				break;
 
@@ -9389,39 +9317,39 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				{
 					if (joc_palanques_finalitzat)
 					{
-						portes_obertes[2] = true;
-						for (COBJModel* obj : vObOBJ)
-						{
-							if (obj->getName() == "puerta1.obj") obj->changeRendering(false);
-							if (obj->getName() == "puerta1_open.obj") obj->changeRendering(true);
-						}
+					portes_obertes[2] = true;
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "puerta1.obj") obj->changeRendering(false);
+						if (obj->getName() == "puerta1_open.obj") obj->changeRendering(true);
+					}
 						for (auto* hitbox : vHitboxOBJ)
 							if (hitbox->getName() == "HITBOX_WALL11_puerta.obj")
 								hitbox->setHitboxActive(false);
 
-						StartHandAnimation(10);
+					StartHandAnimation(10);
 						idx_clue = 3;
-					}
+				}
 				}
 				break;
 				case TipusInteraccioContext::PORTA_SUPERIOR_ENT:
 				{
 					if (joc_Matapatos_finalitzat)
 					{
-						portes_obertes[1] = true;
-						for (COBJModel* obj : vObOBJ)
-						{
-							if (obj->getName() == "puerta3.obj") obj->changeRendering(false);
-							if (obj->getName() == "puerta3_open.obj") obj->changeRendering(true);
-						}
+					portes_obertes[1] = true;
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "puerta3.obj") obj->changeRendering(false);
+						if (obj->getName() == "puerta3_open.obj") obj->changeRendering(true);
+					}
 
 						for (auto* hitbox : vHitboxOBJ)
 							if (hitbox->getName() == "HITBOX_WALL15_puerta.obj")
 								hitbox->setHitboxActive(false);
 
-						StartHandAnimation(6);
+					StartHandAnimation(6);
 						idx_clue = 4;
-					}
+				}
 				}
 				break;
 
@@ -9429,18 +9357,18 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				{
 					if (joc_simbolsFinal_finalitzat)
 					{
-						portes_obertes[0] = true;
-						for (COBJModel* obj : vObOBJ)
-						{
-							if (obj->getName() == "puerta2.obj") obj->changeRendering(false);
-							if (obj->getName() == "puerta2_open.obj") obj->changeRendering(true);
-						}
+					portes_obertes[0] = true;
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "puerta2.obj") obj->changeRendering(false);
+						if (obj->getName() == "puerta2_open.obj") obj->changeRendering(true);
+					}
 
 						for (auto* hitbox : vHitboxOBJ)
 							if (hitbox->getName() == "HITBOX_WALL14_puerta.obj")
 								hitbox->setHitboxActive(false);
-						StartHandAnimation(10);
-					}
+					StartHandAnimation(10);
+				}
 				}
 				break;
 				case TipusInteraccioContext::PALANCA_1:  // PALANCAZZZ per jugar amb teclat
@@ -9569,11 +9497,16 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 		if (action == GLFW_PRESS && mods == 0 && key == GLFW_KEY_G)
 		{
 			g_Inspecciona = !g_Inspecciona;
+			glUseProgram(shader_programID);
+			auto loc = [&](const char* name) {
+				return glGetUniformLocation(shader_programID, name);
+				};
+
+			glUniform1i(loc("uInspecciona"), g_Inspecciona ? GL_TRUE : GL_FALSE);
 			g_FPV = !g_FPV;
-			projeccio = PERSPECT;
 			return;
 		}
-
+		
 		// Tecla I: inventari
 		if (action == GLFW_PRESS && g_FPV && mods == 0 && key == GLFW_KEY_I)
 		{
@@ -9596,6 +9529,36 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 		}
 	}
 
+
+	// Tecla G: mode inspecció
+	if (action == GLFW_PRESS && mods == 0 && key == GLFW_KEY_G)
+	{
+		printf("Modo inspeccion\n");
+		//if (!g_Inspecciona)
+		//{
+		//	g_HeadlightEnabled = true;
+		//	//g_FKeyPrev = false;
+		//}
+		//else
+		//{
+		//	g_HeadlightEnabled = true;
+		//}
+
+		//SkyBoxCube = !SkyBoxCube;
+
+		g_Inspecciona = !g_Inspecciona;
+		glUseProgram(shader_programID);
+		auto loc = [&](const char* name) {
+			return glGetUniformLocation(shader_programID, name);
+			};
+
+		glUniform1i(loc("uInspecciona"), g_Inspecciona ? GL_TRUE : GL_FALSE);
+		g_FPV = !g_FPV;
+		//g_SobelOn = !g_SobelOn;
+
+
+		return;
+	}
 	// ─────────────────────────────────────────────────────────────────
 	// ESC: primer tanquem UI (cofre / mapa), després GAME <-> MENU
 	// ─────────────────────────────────────────────────────────────────
