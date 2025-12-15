@@ -4983,7 +4983,7 @@ void OnPaint(GLFWwindow* window, float dt)
 
 		RenderSobelOverlay("", 0.0f, 0.0f, 0.0f); // negro para todo
 
-		if (!g_SobelNomHighlight.empty())
+		if (!g_SobelNomHighlight.empty() && !g_Inspecciona)
 			RenderSobelOverlay(g_SobelNomHighlight, 1.0f, 1.0f, 0.0f); // amarillo solo ese
 
 		// dejar el shader “normal”
