@@ -397,7 +397,7 @@ glm::mat4 Vista_Esferica(GLuint sh_programID,CEsfe3D opv,char VPol,bool pant,CPu
 				 CColor col_fons,CColor col_object,char objecte,double mida,int step, 
 				 bool frnt_fcs, bool oculta, bool testv, bool bck_ln, 
 				 char iluminacio, bool llum_amb, LLUM* lumi, bool ifix, bool il2sides,
-				 bool eix, CMask3D reixa, CPunt3D hreixa)
+				 bool eix, CMask3D reixa, CPunt3D hreixa, glm::vec3& sphericalCamPos)
 {
 	GLdouble cam[3] = { 0.0,0.0,0.0 }, up[3] = { 0.0,0.0,0.0 };
 	glm::mat4 MatriuVista(1.0);
@@ -411,7 +411,7 @@ glm::mat4 Vista_Esferica(GLuint sh_programID,CEsfe3D opv,char VPol,bool pant,CPu
 	opv.beta=opv.beta*PI/180;
 
 // Neteja dels buffers de color i profunditat
-	Fons(col_fons);
+	//Fons(col_fons);
 
 // Posició càmera i vector cap amunt
 	if (VPol==POLARZ) { cam[0]=opv.R*cos(opv.beta)*cos(opv.alfa);
@@ -433,8 +433,11 @@ glm::mat4 Vista_Esferica(GLuint sh_programID,CEsfe3D opv,char VPol,bool pant,CPu
 					up[1]=-cos(opv.beta)*sin(opv.alfa);
 					up[2]=-sin(opv.beta)*sin(opv.alfa);		}
 
+	// Guardamos el valor de la camara
+	sphericalCamPos = glm::vec3(cam[0], cam[1], cam[2]);
+
 // Iluminacio movent-se amb la camara (abans glLookAt)
-	if (!ifix) Iluminacio(sh_programID,iluminacio, ifix, il2sides, llum_amb, lumi, objecte, frnt_fcs, bck_ln, step);
+	//if (!ifix) Iluminacio(sh_programID,iluminacio, ifix, il2sides, llum_amb, lumi, objecte, frnt_fcs, bck_ln, step);
 
 // Opció pan: desplaçament del Centre de l'esfera (pant=1)
 	if (pant) TransMatrix = glm::translate(TransMatrix, vec3(tr.x, tr.y, tr.z));	//glTranslatef(tr.x, tr.y, tr.z);
@@ -458,15 +461,15 @@ glm::mat4 Vista_Esferica(GLuint sh_programID,CEsfe3D opv,char VPol,bool pant,CPu
    //pepe glUniform1f(glGetUniformLocation(sh_programID, "uThreshold"), 0.5f); 
 
 // Iluminacio fixe respecte la camara (després glLookAt)
-   if (ifix) Iluminacio(sh_programID,iluminacio, ifix, il2sides, llum_amb, lumi, objecte, frnt_fcs, bck_ln, step);
+   //if (ifix) Iluminacio(sh_programID,iluminacio, ifix, il2sides, llum_amb, lumi, objecte, frnt_fcs, bck_ln, step);
    
 // Test de Visibilitat
-	if (testv) glEnable(GL_CULL_FACE);
-		else glDisable(GL_CULL_FACE);
-
-// Ocultacions (Z-buffer)
-	if (oculta) glEnable(GL_DEPTH_TEST);
-		else glDisable(GL_DEPTH_TEST);
+//	if (testv) glEnable(GL_CULL_FACE);
+//		else glDisable(GL_CULL_FACE);
+//
+//// Ocultacions (Z-buffer)
+//	if (oculta) glEnable(GL_DEPTH_TEST);
+//		else glDisable(GL_DEPTH_TEST);
 
 	return MatriuVista;
 }

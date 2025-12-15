@@ -1076,6 +1076,8 @@ float       g_FPVSpeed = 3.0f;
 float       g_FPVSense = 0.12f;
 double      g_TimePrev = 0.0;
 
+glm::vec3 g_SphericalCamPos(0.0f);
+
 // Sprint
 float g_SprintMult = 2.0f;
 bool  g_IsSprinting = false;
@@ -3827,14 +3829,14 @@ void OnPaint(GLFWwindow* window)
 	glDisable(GL_BLEND);
 
 	// Color de fondo según modo
-	if (act_state == GameState::INSPECTING) glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Negro
-	else glClearColor(c_fons.r, c_fons.g, c_fons.b, 1.0f);   // Normal
+	glClearColor(c_fons.r, c_fons.g, c_fons.b, 1.0f);   // Normal
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	g_SobelMaskPass = false;
 	glUseProgram(shader_programID);
 
 	// ─ Càmera FPV (si escau)
+	
 	if (g_FPV) {
 		// Projecció a mida de finestra
 		ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, w, h, OPV.R);
@@ -3851,62 +3853,17 @@ void OnPaint(GLFWwindow* window)
 			p.hitbox = GetAABBFromModelMatrix(p.M);
 	}
 
-	switch (projeccio)
-	{
-	case AXONOM:
-		configura_Escena();
-		dibuixa_Escena();
-		break;
+	//if (g_Inspecciona)
+	//{
+	//	ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, w, h, OPV.R);
 
-	case ORTO:
-		ProjectionMatrix = Projeccio_Orto();
-		ViewMatrix = Vista_Ortografica(shader_programID, 0, OPV.R, c_fons, col_obj, objecte, mida, pas,
-			front_faces, oculta, test_vis, back_line,
-			ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-			eixos, grid, hgrid);
-		configura_Escena();
-		dibuixa_Escena();
-		break;
-
-	case PERSPECT:
-		if (act_state == GameState::INSPECTING) 
-		//if (g_Inspecciona) 
-		{
-			ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, w, h, OPV.R);
-
-			GLdouble vpv[3] = { 0.0, 0.0, 1.0 };
-			if (camera == CAM_ESFERICA) {
-				n[0] = 0; n[1] = 0; n[2] = 0;
-				ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
-					front_faces, true, test_vis, back_line,
-					ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-					eixos, grid, hgrid);
-			}
-			else if (camera == CAM_NAVEGA) {
-				if (Vis_Polar == POLARZ) { vpv[0] = 0; vpv[1] = 0; vpv[2] = 1; }
-				else if (Vis_Polar == POLARY) { vpv[0] = 0; vpv[1] = 1; vpv[2] = 0; }
-				else { vpv[0] = 1; vpv[1] = 0; vpv[2] = 0; }
-
-				ViewMatrix = Vista_Navega(shader_programID, opvN, n, vpv, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, true, pas,
-					front_faces, oculta, test_vis, back_line,
-					ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-					eixos, grid, hgrid);
-			}
-			else {
-				ViewMatrix = Vista_Geode(shader_programID, OPV_G, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
-					front_faces, oculta, test_vis, back_line,
-					ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-					eixos, grid, hgrid);
-			}
-		}
-		configura_Escena();
-		dibuixa_Escena();
-		break;
-
-	default:
-		break;
-	}
-
+	//	ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
+	//		front_faces, true, test_vis, back_line,
+	//		ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
+	//		eixos, grid, hgrid);
+	//}
+	configura_Escena();
+	dibuixa_Escena();
 	glUseProgram(0);
 	//DibuixaRay();
 
@@ -3917,7 +3874,9 @@ void OnPaint(GLFWwindow* window)
 	{
 		// 2.0) Preparació FBO
 		glBindFramebuffer(GL_FRAMEBUFFER, g_SobelFBO);
+		
 		glViewport(0, 0, g_FBOW, g_FBOH);
+
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LESS);
 		glDisable(GL_SCISSOR_TEST);
@@ -3931,48 +3890,16 @@ void OnPaint(GLFWwindow* window)
 		glDepthMask(GL_TRUE);
 
 		// Mateixa càmera que al pas 1; per PERSPECT cal projecció a mida del FBO
-		if (projeccio == PERSPECT) {
-			ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, g_FBOW, g_FBOH, OPV.R);
-			if (g_FPV) {
-				FPV_ApplyView();
-			}
-			else {
-				GLdouble vpv[3] = { 0.0, 0.0, 1.0 };
-				if (camera == CAM_ESFERICA) {
-					n[0] = 0; n[1] = 0; n[2] = 0;
-					ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
-						front_faces, oculta, test_vis, back_line,
-						ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-						eixos, grid, hgrid);
-				}
-				else if (camera == CAM_NAVEGA) {
-					if (Vis_Polar == POLARZ) { vpv[0] = 0; vpv[1] = 0; vpv[2] = 1; }
-					else if (Vis_Polar == POLARY) { vpv[0] = 0; vpv[1] = 1; vpv[2] = 0; }
-					else { vpv[0] = 1; vpv[1] = 0; vpv[2] = 0; }
-
-					ViewMatrix = Vista_Navega(shader_programID, opvN, n, vpv, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, true, pas,
-						front_faces, oculta, test_vis, back_line,
-						ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-						eixos, grid, hgrid);
-				}
-				else {
-					ViewMatrix = Vista_Geode(shader_programID, OPV_G, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
-						front_faces, oculta, test_vis, back_line,
-						ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-						eixos, grid, hgrid);
-				}
-			}
+		ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, g_FBOW, g_FBOH, OPV.R);
+		if (g_FPV) {
+			FPV_ApplyView();
 		}
-		else if (projeccio == ORTO) {
-			ProjectionMatrix = Projeccio_Orto();
-			ViewMatrix = Vista_Ortografica(shader_programID, 0, OPV.R, c_fons, col_obj, objecte, mida, pas,
+		else 
+		{
+			ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
 				front_faces, oculta, test_vis, back_line,
 				ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
-				eixos, grid, hgrid);
-		}
-		else {
-			// AXONOM / altres
-			configura_Escena();
+				eixos, grid, hgrid, g_SphericalCamPos);
 		}
 
 		// Dibuixa sala + props (sense objecte) per emplenar el Z del FBO
@@ -4021,7 +3948,10 @@ void OnPaint(GLFWwindow* window)
 		// 3) COMPOSICIÓ: QUAD del FBO sobre el backbuffer (alpha blend)
 		// ────────────────────────────────────────────────────────────────────
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
 		glViewport(0, 0, w, h);
+		
+
 		glDisable(GL_DEPTH_TEST);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -4039,6 +3969,7 @@ void OnPaint(GLFWwindow* window)
 		glUseProgram(0);
 		glDisable(GL_BLEND);
 		glEnable(GL_DEPTH_TEST);
+
 	}
 
 	// ────────────────────────────────────────────────────────────────────────
@@ -4064,13 +3995,13 @@ void configura_Escena()
 // dibuixa_Escena: Funció que crida al dibuix dels diferents elements de l'escena
 void dibuixa_Escena()
 {
-
+	
 
 	// ===== PASADA NORMAL: skybox / eixos / sala+props =====
 	if (!g_SobelMaskPass)
 	{
 		// 1) Skybox (opcional)
-		if (SkyBoxCube)
+		if (SkyBoxCube && !g_Inspecciona)
 		{
 			glUseProgram(skC_programID);
 
@@ -4094,7 +4025,7 @@ void dibuixa_Escena()
 
 		// 2) Eixos/Grid
 		//dibuixa_Eixos(eixos_programID, eixos, eixos_Id, grid, hgrid, ProjectionMatrix, ViewMatrix);
-
+		
 		// 3) Sala + props 
 		if (g_ShowRoom)
 		{
@@ -4130,19 +4061,40 @@ void dibuixa_Escena()
 			glUniform4i(loc("sw_intensity"), 1, 1, 1, 0);
 
 			// --- Linterna FPV (uniforms) ---
-			const bool headlightOn = (g_FPV && g_HeadlightEnabled);
+			const bool headlightOn = ((g_FPV && g_HeadlightEnabled) || g_Inspecciona);
 			glUniform1i(loc("uHeadlightOn"), headlightOn ? GL_TRUE : GL_FALSE);
 
-			if (headlightOn) {
-				// dirección de mirada desde yaw/pitch globales
-				const float cy = cosf(glm::radians(g_FPVYaw));
-				const float sy = sinf(glm::radians(g_FPVYaw));
-				const float cp = cosf(glm::radians(g_FPVPitch));
-				const float sp = sinf(glm::radians(g_FPVPitch));
-				const glm::vec3 front = glm::normalize(glm::vec3(cy * cp, sp, sy * cp));
+			if (headlightOn)
+			{
+				glm::vec3 camPos;
+				glm::vec3 dir;
 
-				glUniform3f(loc("uCameraPos"), g_FPVPos.x, g_FPVPos.y, g_FPVPos.z);
-				glUniform3f(loc("uHeadDir"), front.x, front.y, front.z);
+				if (g_Inspecciona)
+				{
+					// --- INSPECTION MODE LIGHT ---  
+					// camera position = spherical cam position
+					camPos = g_SphericalCamPos;
+
+					// object is centered at origin in inspection mode
+					glm::vec3 target(0.0f, 0.0f, 0.0f);
+
+					// direction from camera -> object
+					dir = glm::normalize(target - camPos);
+				}
+				else
+				{
+					// --- NORMAL FPV LIGHT ---  
+					camPos = g_FPVPos;
+
+					const float cy = cosf(glm::radians(g_FPVYaw));
+					const float sy = sinf(glm::radians(g_FPVYaw));
+					const float cp = cosf(glm::radians(g_FPVPitch));
+					const float sp = sinf(glm::radians(g_FPVPitch));
+					dir = glm::normalize(glm::vec3(cy * cp, sp, sy * cp));
+				}
+
+				glUniform3f(loc("uCameraPos"), camPos.x, camPos.y, camPos.z);
+				glUniform3f(loc("uHeadDir"), dir.x, dir.y, dir.z);
 				glUniform1f(loc("uHeadCutoff"), cosf(glm::radians(15.0f)));
 				glUniform3f(loc("uHeadColor"), 1.0f, 1.0f, 1.0f);
 			}
@@ -4162,11 +4114,13 @@ void dibuixa_Escena()
 
 
 		}
-
-		DibuixaAigua();
+		if (!g_Inspecciona)
+			DibuixaAigua();
+		
 	}
 
-	DibuixaMatapatos(shader_programID);
+	if (!g_Inspecciona)
+		DibuixaMatapatos(shader_programID);
 
 	dibuixa_EscenaGL(
 		shader_programID,
@@ -4494,7 +4448,8 @@ void draw_scene()
 
 	renderCronometre(window);
 	renderInstruccions(window);
-	renderCandelabre(window, g_HeadlightEnabled);
+	if (!g_Inspecciona)
+		renderCandelabre(window, g_HeadlightEnabled);
 
 
 	ImGui::Render();
@@ -8056,20 +8011,6 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 	if (action == GLFW_PRESS && mods == 0 && key == GLFW_KEY_G)
 	{
 		printf("Modo inspeccion\n");
-		if (act_state == GameState::GAME)
-		{
-			act_state = GameState::INSPECTING;
-			FPV_SetMouseCapture(false);
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-			//return;
-		}
-		else if (act_state == GameState::INSPECTING)
-		{
-			act_state = GameState::GAME;
-			FPV_SetMouseCapture(true);
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-			//return;
-		}
 		//if (!g_Inspecciona)
 		//{
 		//	g_HeadlightEnabled = true;
@@ -8077,12 +8018,18 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 		//}
 		//else
 		//{
-		//	g_HeadlightEnabled = false;
+		//	g_HeadlightEnabled = true;
 		//}
 
 		//SkyBoxCube = !SkyBoxCube;
 
 		g_Inspecciona = !g_Inspecciona;
+		glUseProgram(shader_programID);
+		auto loc = [&](const char* name) {
+			return glGetUniformLocation(shader_programID, name);
+			};
+
+		glUniform1i(loc("uInspecciona"), g_Inspecciona ? GL_TRUE : GL_FALSE);
 		g_FPV = !g_FPV;
 		//g_SobelOn = !g_SobelOn;
 
@@ -11224,30 +11171,6 @@ int main(void)
 				FPV_SetMouseCapture(true);
 			}
 		}
-		else if (act_state == GameState::INSPECTING)
-		{
-			FPV_SetMouseCapture(true);
-			g_FVP_move = true;
-
-			printf("Sobel actual: %d\n", g_SobelOn);
-			// Events de GLFW
-			glfwPollEvents();
-
-			// ─────────────────────────────────────────────────────────────
-			// 1) ESCENA 3D + SOBEL (sense ImGui) → OnPaint
-			//    (aquí es fa el glClear, Draw sala, props, Sobel, mà, etc.)
-			// ─────────────────────────────────────────────────────────────
-			OnPaint(window);
-
-			// ─────────────────────────────────────────────────────────────
-			// 4) SWAP BUFFERS → presentem escena 3D + HUD ImGui
-			// ─────────────────────────────────────────────────────────────
-			glfwMakeContextCurrent(window);
-			//glfwSwapBuffers(window);
-
-			renderItemDescription(window, "Nombre Item", "Descripcion Item");
-		}
-		
 		else if (act_state == GameState::GAME)
 		{
 			// Si NO hi ha cap HUD "gran" obert → podem moure'ns en FPV

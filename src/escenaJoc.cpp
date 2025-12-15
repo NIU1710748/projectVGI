@@ -127,38 +127,42 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 	//		Renderizacion de objetos        //
 	//-------------------------------------//
 
-	if (g_Inspecciona)
-	{
-		COBJModel* objecteOBJ = nullptr;
+	//if (g_Inspecciona)
+	//{
+	//	COBJModel* objecteOBJ = nullptr;
 
-		for (COBJModel* obj : vObjectesOBJ)                  
-		{
-			if (!obj) continue;
+	//	for (COBJModel* obj : vObjectesOBJ)                  
+	//	{
+	//		if (!obj) continue;
 
-			if (obj->getName() == "palanca_prueba.obj")
-			{
-				objecteOBJ = obj;
-				break;
-			}
-		}
+	//		if (obj->getName() == "palanca_prueba.obj")
+	//		{
+	//			objecteOBJ = obj;
+	//			break;
+	//		}
+	//	}
 
-		if (!objecteOBJ) {
-			fprintf(stderr,
-				"[INSPECCIO] No he trobat palanca_prueba.obj dins vObjectesOBJ (size=%zu)\n",
-				vObjectesOBJ.size());
-			return; // o bé dibuixa l'escena normal, com vulguis
-		}
+	//	if (!objecteOBJ) {
+	//		fprintf(stderr,
+	//			"[INSPECCIO] No he trobat palanca_prueba.obj dins vObjectesOBJ (size=%zu)\n",
+	//			vObjectesOBJ.size());
+	//		return; // o bé dibuixa l'escena normal, com vulguis
+	//	}
 
-		ModelMatrix = MatriuTG;
-		glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
-		NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
-		glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
 
-		objecteOBJ->draw_TriVAO_OBJ(sh_programID);
-	}
+	//	SeleccionaColorMaterial(sh_programID, col_object, sw_mat);
 
-	else
-	{
+	//	ModelMatrix = MatriuTG;
+	//	glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
+
+	//	NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
+	//	glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
+
+	//	objecteOBJ->draw_TriVAO_OBJ(sh_programID);
+	//}
+
+	//else
+	//{
 		//ModelMatrix = MatriuTG;
 		//// Pas ModelView Matrix a shader
 		//glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
@@ -175,75 +179,89 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 		{
 			if (!objecteOBJ->isRendering())
 				continue;
-			if (objecteOBJ->isHitbox())
-				continue;
 
-
-			// No dibuixem la gavina “de decoració”: aquest model l'usa el minijoc
-			if (objecteOBJ == g_MatapatosGavina)
-				continue;
-
-			if (objecteOBJ->getName() == "Moby_Raw_Model.obj")
+			if (g_Inspecciona)
 			{
-				// Saltamos este objecte → no es dibuixa
-				continue;
-			}
+				if (objecteOBJ->getName() == "INTERACTUABLE_ancla_gir.obj")
+				{
+					// Pas ModelView Matrix a shader
+					ModelMatrix = objecteOBJ->modelMatrix();  // DIFFERENT PER OBJECT
+					glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
 
-			if (objecteOBJ->getName() == "patoso.obj")
+					NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
+					// Pas NormalMatrix a shader
+					glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
+
+					objecteOBJ->draw_TriVAO_OBJ(sh_programID);	// Dibuixar VAO a pantalla
+				}
+			}
+			else
 			{
-				// Saltamos este objecte → no es dibuixa
-				continue;
+				// No dibuixem la gavina “de decoració”: aquest model l'usa el minijoc
+				if (objecteOBJ == g_MatapatosGavina)
+					continue;
+
+				if (objecteOBJ->getName() == "Moby_Raw_Model.obj")
+				{
+					// Saltamos este objecte → no es dibuixa
+					continue;
+				}
+
+				if (objecteOBJ->getName() == "patoso.obj")
+				{
+					// Saltamos este objecte → no es dibuixa
+					continue;
+				}
+
+				if (objecteOBJ->getName() == "ducki.obj")
+				{
+					// Saltamos este objecte → no es dibuixa
+					continue;
+				}
+
+				if (objecteOBJ->getName() == "INTERACTUABLE_espada_gir.obj")
+				{
+					// Saltamos este objecte → no es dibuixa
+					continue;
+				}
+
+				if (objecteOBJ->getName() == "INTERACTUABLE_ancla_gir.obj")
+				{
+					// Saltamos este objecte → no es dibuixa
+					continue;
+				}
+
+				if (objecteOBJ->getName() == "INTERACTUABLE_calavera_gir.obj")
+				{
+					// Saltamos este objecte → no es dibuixa
+					continue;
+				}
+
+				if (objecteOBJ->getName() == "INTERACTUABLE_botella_gir.obj")
+				{
+					// Saltamos este objecte → no es dibuixa
+					continue;
+				}
+
+				if (objecteOBJ->getName() == "INTERACTUABLE_barril_gir.obj")
+				{
+					// Saltamos este objecte → no es dibuixa
+					continue;
+				}
+
+				// Pas ModelView Matrix a shader
+				ModelMatrix = objecteOBJ->modelMatrix();  // DIFFERENT PER OBJECT
+				glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
+
+				NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
+				// Pas NormalMatrix a shader
+				glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
+
+				objecteOBJ->draw_TriVAO_OBJ(sh_programID);	// Dibuixar VAO a pantalla
 			}
-
-			if (objecteOBJ->getName() == "ducki.obj")
-			{
-				// Saltamos este objecte → no es dibuixa
-				continue;
-			}
-
-			if (objecteOBJ->getName() == "INTERACTUABLE_espada_gir.obj")
-			{
-				// Saltamos este objecte → no es dibuixa
-				continue;
-			}
-
-			if (objecteOBJ->getName() == "INTERACTUABLE_ancla_gir.obj")
-			{
-				// Saltamos este objecte → no es dibuixa
-				continue;
-			}
-
-			if (objecteOBJ->getName() == "INTERACTUABLE_calavera_gir.obj")
-			{
-				// Saltamos este objecte → no es dibuixa
-				continue;
-			}
-
-			if (objecteOBJ->getName() == "INTERACTUABLE_botella_gir.obj")
-			{
-				// Saltamos este objecte → no es dibuixa
-				continue;
-			}
-
-			if (objecteOBJ->getName() == "INTERACTUABLE_barril_gir.obj")
-			{
-				// Saltamos este objecte → no es dibuixa
-				continue;
-			}
-
-
-			// Pas ModelView Matrix a shader
-			ModelMatrix = objecteOBJ->modelMatrix();  // DIFFERENT PER OBJECT
-			glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
-
-			NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
-			// Pas NormalMatrix a shader
-			glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
-
-			objecteOBJ->draw_TriVAO_OBJ(sh_programID);	// Dibuixar VAO a pantalla
 		}
 
-	}
+	//}
 
 	
 	//INTRO - Motivació Referents Objetctius (un general que compengui tot el prijecte) Caraceristiques del projecte (camara, estil etc) - Eines que hem fet (chatgpt) 

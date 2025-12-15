@@ -48,7 +48,7 @@ void UpdatePadMouseForImGui(GLFWwindow* window);
 
 
 // Interficies
-enum class GameState { INIT, MENU, GAME, OPTIONS, CLUE, LOADING, INSPECTING, END };
+enum class GameState { INIT, MENU, GAME, OPTIONS, CLUE, LOADING, END };
 GameState act_state = GameState::INIT; // Per veure en quin estat està el joc
 
 // IDs de textura per cada estat

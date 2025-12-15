@@ -30,7 +30,7 @@ glm::mat4 Vista_Ortografica(GLuint sh_programID, int prj, GLdouble Raux, CColor 
 glm::mat4 Vista_Esferica(GLuint sh_programID, CEsfe3D opv,char VPol,bool pant,CPunt3D tr,CPunt3D trF,
 				 CColor col_fons,CColor col_object,char objecte,double mida,int step,
 				 bool frnt_fcs, bool oculta, bool testv, bool bck_ln, char iluminacio, bool llum_amb, LLUM* lumin, 
-				 bool ifix, bool il2sides, bool eix, CMask3D reixa, CPunt3D hreixa);
+				 bool ifix, bool il2sides, bool eix, CMask3D reixa, CPunt3D hreixa, glm::vec3& sphericalCamPos);
 // Entorn VGI: Càmera Navega
 glm::mat4 Vista_Navega(GLuint sh_programID,CPunt3D pv,//bool pvb,
 				  GLdouble n[3],GLdouble v[3], bool pant,CPunt3D tr,CPunt3D trF,
