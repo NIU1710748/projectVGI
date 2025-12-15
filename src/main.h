@@ -217,7 +217,7 @@ void GetGLVersion(int* major, int* minor);
 // Entorn VGI: Control de l'EVENT ONSIZE
 void OnSize(GLFWwindow* window, int width, int height);
 
-void OnPaint(GLFWwindow* window);
+void OnPaint(GLFWwindow* window, float dt);
 void configura_Escena();
 void dibuixa_Escena();
 // --- Habitación (cubo interior) --- //popo

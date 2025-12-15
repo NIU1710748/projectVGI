@@ -49,8 +49,24 @@ enum class TipusInteraccioContext {
 	PORTA_CAPABAIX,
 	PORTA_CAPADALT,
 	PORTA_SUPERIOR_ENT,
-	PORTA_SUPERIOR_SURT
+	PORTA_SUPERIOR_SURT,
+	PALANCA_1, //PALANCAZZZ
+	PALANCA_2,
+	PALANCA_3,
+	PALANCA_4,
+	PALANCA_5,
+	PALANCA_6,
+	PALANCA_7,
+	PALANCA_8,
+	COFRE_FINAL
 };
+
+std::string g_SobelOnlyName = ""; // vacío = dibuja todos
+
+std::string g_SobelTargetName;   // "" si nada
+float g_InteractMaxDist = 3.5f;  // ajusta
+
+
 
 TipusInteraccioContext g_InteraccioContext = TipusInteraccioContext::NONE;
 bool g_InteraccioDisponible = false;
@@ -86,6 +102,24 @@ float     g_RadiPortaSuperiorEntrada = 1.5f;
 glm::vec3 g_PosPortaSuperiorSortida(-7.0f, 8.70f, -0.73f);
 float     g_RadiPortaSuperiorSortida = 1.5f;
 
+
+// PALANCAZZZ 
+glm::vec3 g_PosPalanca_1(-8.50f, 1.70f, -2.00f);
+float g_RadiPalancas = 1.0f;
+
+glm::vec3 g_PosPalanca_2(-5.809f, 1.70f, -3.68f);
+
+glm::vec3 g_PosPalanca_3(-1.19f, 1.70f, -3.60f);
+
+glm::vec3 g_PosPalanca_4(2.23f, 1.70f, -3.70f);
+
+glm::vec3 g_PosPalanca_5(10.046f, 2.48f, -2.413f);
+
+glm::vec3 g_PosPalanca_6(10.68f, 1.962f, 2.356f);
+
+glm::vec3 g_PosPalanca_7(0.69f, 1.70f, 4.32f);
+
+glm::vec3 g_PosPalanca_8(-3.10f, 1.70f, 4.40f);
 // DESTINS de cada zona (on apareixerà el jugador)
 glm::vec3 g_DestZonaBaixaAMitja(-9.73f, 5.20f, 0.27f);
 glm::vec3 g_DestZonaMitjaABaixa(-8.71f, 1.70f, 2.82f);
@@ -95,6 +129,9 @@ glm::vec3 g_DestZonaSuperiorAMitja(11.52f, 5.20f, -0.73f);
 
 glm::vec3 g_DestZonaSuperiorATimo(-9.69f, 11.70f, -5.17f);
 glm::vec3 g_DestZonaTimoASuperior(-4.81f, 8.70f, -5.94f);
+
+
+#include <initializer_list>
 
 
 
@@ -109,6 +146,10 @@ float     g_PadMouseDeadzone = 0.25f;             // deadzone per al stick dret
 
 GamepadState g_Pad{};
 GamepadState g_PadPrev{};
+
+static inline const char* BtnInteract() { return (g_Pad.connected) ? "X" : "E"; }
+static inline const char* BtnInventory() { return (g_Pad.connected) ? "Y" : "I"; }
+static inline const char* BtnFlashlight() { return (g_Pad.connected) ? "LB" : "F"; }
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -178,6 +219,57 @@ float     g_RadiZonaCofre = 1.5f;                         // radi d'interacció
 
 bool g_CofreItemAfegit = false;   // per no afegir la clau més d'un cop
 
+// ─── Cofre final ───────────────────────────────────────────
+glm::vec3 g_PosZonaCofreFinal = glm::vec3(-7.0f, 8.70f, 3.73f); // centre aprox. cofre
+
+static void PrintPalancasPositionsFromModels()
+{
+	for (COBJModel* obj : vObOBJ) {
+		if (!obj) continue;
+		const std::string& name = obj->getName();
+		// Filtra pels noms de palanca que tens al directori (.obj)
+		if (name.find("palanca") == std::string::npos && name.find("Palanca") == std::string::npos) continue;
+
+		// Matriu model (orig_local -> món)
+		glm::mat4 M = obj->modelMatrix();
+
+		// Càlcul explícit de la posició món transformant l'origen local (0,0,0,1)
+		glm::vec3 posWorld = glm::vec3(M * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+		// També capturem la columna 3 de la matriu per comparació (debug)
+		glm::vec3 col3 = glm::vec3(M[3]);
+
+		fprintf(stderr, "[PALANCA MODEL] %s -> world_pos=(%.3f, %.3f, %.3f)  (mat.col3=(%.3f, %.3f, %.3f))\n",
+			name.c_str(), posWorld.x, posWorld.y, posWorld.z,
+			col3.x, col3.y, col3.z);
+	}
+}
+
+// ==========================================
+// 1. VARIABLES GLOBALES DEL SISTEMA DE FADE
+// ==========================================
+
+// Estados del sistema
+enum FadeState {
+	FADE_IDLE,      // Juego normal
+	FADE_OUT,       // Yendo a negro (Teletransporte)
+	FADE_IN         // Aclarando (Intro o llegada de Teletransporte)
+};
+
+// Configuración principal
+int   g_CurrentFadeState = FADE_IN;  // ¡IMPORTANTE! Empieza en IN para que el juego arranque en negro
+float g_FadeAlpha = 1.0f;     // 1.0 = Negro total, 0.0 = Visible
+float g_FadeSpeed = 0.9f;     // Velocidad del efecto
+TipusInteraccioContext g_TeleportTargetID = TipusInteraccioContext::NONE; // Usamos el tipo enum
+
+// Flags para la INTRO CINEMÁTICA
+bool  g_IntroSoundPlayed = false;    // Para que el sonido "WAKING" suene una sola vez
+bool  g_IntroHandsPlayed = false;    // Para que la animación de manos salga una sola vez
+
+
+// NOTA: 'g_FadeActive' ya no es necesaria como bool, 
+// usaremos (g_CurrentFadeState != FADE_IDLE) para saber si está activo.
+// ----------------------------------------
 
 
 
@@ -197,7 +289,7 @@ struct HandAnimation {
 	float offsetX = 0.0f;
 };
 
-constexpr int HAND_ANIM_COUNT = 15;
+constexpr int HAND_ANIM_COUNT = 20;
 int g_QueuedHandAnim = -1;
 
 HandAnimation g_HandAnims[HAND_ANIM_COUNT];
@@ -269,9 +361,17 @@ const std::wstring OPEN_BOOK_FILE = L"../audio/open_book.wav";
 const std::wstring CLOSE_BOOK_FILE = L"../audio/close_book.wav";
 const std::wstring MENU_HOVER_FILE = L"../audio/menu_hover.wav";
 const std::wstring MENU_SELECT_FILE = L"../audio/menu_select.wav";
+const std::wstring WAKING_FILE = L"../audio/waking.wav";
+const std::wstring LEATHER_FILE = L"../audio/leather_sound_1.wav";
+const std::wstring MUSIC_2_FILE = L"../audio/ocean_sound.wav";
+const std::wstring LEVER_FILE = L"../audio/lever.wav";
+const std::wstring CLICK_FILE = L"../audio/click.wav";
+const std::wstring FINAL_FILE = L"../audio/final.wav";
 
 float g_stepCooldown = 0.0f;
 
+float dt_real;
+float dt_juego;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Minijoc MATAPATOS 
@@ -320,6 +420,8 @@ const int HAND_ANIM_MAPA_OBRIR = 12;   // Abrir cuaderno
 
 // Quan acabem l'animació d'obrir, hem de mostrar el quadern
 bool g_PendingMapaOpenAfterAnim = false;
+
+
 
 
 
@@ -412,6 +514,86 @@ void UpdateGamepad(float /*dt*/)
 	}
 }
 
+//ENDGAME
+
+// ─────────────────────────────────────────────────────────────
+// ENDGAME CUTSCENE
+// ─────────────────────────────────────────────────────────────
+enum class EndgameState {
+	OFF = 0,
+	TP_LOCK,
+	LOOKDOWN,
+	CREDITS,
+	CLOSE_BOOK,
+	BLACK
+};
+
+enum class EscapeAnimState { NONE = 0, CELEBRATING };
+static EscapeAnimState g_EscapeAnimState = EscapeAnimState::NONE;
+static const int ESCAPE_CELEBRATE_ANIM = 4; // tu anim de celebrar
+
+
+static bool g_EscapePendingEndgame = false;
+
+bool theEND = false;
+bool g_EndgameActive = false;
+static EndgameState g_EndgameState = EndgameState::OFF;
+static float        g_EndgameT = 0.0f;
+static bool g_PendingEndgameFromBoat = false;
+
+// Target TP (los tuyos)
+static glm::vec3 g_EndPos = glm::vec3(300.76f, 1.70f, 151.07f);
+static float     g_EndYaw = -509.40f;
+static float     g_EndPitch = -4.76f;
+
+
+// “bajar cabeza”
+static float g_EndPitchTarget = -55.0f;   // ajusta si quieres
+static float g_EndPitchSpeed = 25.0f;    // grados/seg
+
+static float approachf(float cur, float target, float maxDelta) {
+	if (cur < target) return (cur + maxDelta > target) ? target : (cur + maxDelta);
+	return (cur - maxDelta < target) ? target : (cur - maxDelta);
+}
+
+// IDs de animación: REUTILIZO las que ya usas para el mapa
+// (para que NO tengas que inventarte nada ahora)
+static int g_EndAnim_Open = HAND_ANIM_MAPA_OBRIR;
+static int g_EndAnim_Close = HAND_ANIM_MAPA_TANCAR;
+
+// “créditos”: por ahora reusamos una anim existente para test (cámbiala luego)
+static int g_EndAnim_Credits = HAND_ANIM_MAPA_OBRIR; // luego pones aquí tu “pasar páginas”
+
+
+
+
+enum class PendingDoorOpen {
+	NONE = 0,
+	PUERTA1,
+	PUERTA2,
+	PUERTA3,
+	PUERTA4
+};
+
+static PendingDoorOpen g_PendingDoorOpen = PendingDoorOpen::NONE;
+
+
+
+
+// SOBEL AMARILLO POR POSICIÓN
+
+struct ZonaSobelInteractiva {
+	std::string nomObj;   // nombre EXACTO del obj (getName())
+	glm::vec3   pos;      // centro de la zona (usa tus coords FPV)
+	float       halfX;    // “medio ancho” del cuadrado en X
+	float       halfZ;    // “medio fondo” del cuadrado en Z
+	float       yTol;     // tolerancia en Y (para no activar en otra planta)
+};
+
+static std::vector<ZonaSobelInteractiva> g_ZonesSobel;
+static std::string g_SobelNomHighlight; // <-- ya lo estás usando en OnPaint
+
+
 // ─────────────────────────────────────────────────────────────
 // Atualitza el "ratolí virtual" d'ImGui amb el stick dret
 //  - Mou el cursor amb rx, ry del gamepad
@@ -424,8 +606,8 @@ void UpdatePadMouseForImGui(GLFWwindow* window)
 	if (!g_Pad.connected) return;
 
 	ImGuiIO& io = ImGui::GetIO();
-	float dt = io.DeltaTime;
-	if (dt <= 0.0f) dt = 1.0f / 60.0f;
+	//float dt = io.DeltaTime;
+	//if (dt <= 0.0f) dt = 1.0f / 60.0f;
 
 	int ww, hh;
 	glfwGetWindowSize(window, &ww, &hh);
@@ -463,8 +645,9 @@ void UpdatePadMouseForImGui(GLFWwindow* window)
 
 	if (ax != 0.0f || ay != 0.0f)
 	{
-		g_PadMousePos.x += ax * g_PadMouseSpeed * dt;
-		g_PadMousePos.y -= ay * g_PadMouseSpeed * dt;
+		g_PadMousePos.x += ax * g_PadMouseSpeed * dt_real;
+		g_PadMousePos.y -= ay * g_PadMouseSpeed * dt_real;
+
 
 		// Clamp dins la finestra
 		g_PadMousePos.x = glm::clamp(g_PadMousePos.x, 0.0f, float(ww - 1));
@@ -502,7 +685,7 @@ void InitAigua()
 {
 	if (g_AiguaVAO != 0) return;
 
-	const float mida = 200.0f; // radi enorme, com si fos mar infinit
+	const float mida = 400.0f; // radi enorme, com si fos mar infinit
 
 	struct VertAigua {
 		float px, py, pz;
@@ -659,7 +842,7 @@ void InitHandQuad() {
 #include "stb_image.h"
 
 // Carga una textura simple 
-/*static GLuint LoadTextureSimple(const char* path)
+static GLuint LoadTextureSimple(const char* path)
 {
 	int w, h, n;
 	stbi_uc* data = stbi_load(path, &w, &h, &n, 4);
@@ -682,7 +865,7 @@ void InitHandQuad() {
 
 	stbi_image_free(data);
 	return tex;
-}*/
+}
 
 // Carrega la textura d'icona per un item d'inventari.
 // Ruta esperada: .\textures\inventory\<id>.png
@@ -801,7 +984,7 @@ void InitHandAnimations()
 	LoadHandAnimationSheet(9, 45.0f, 22, 11, 240);
 
 	// 10 – Empujar puerta (CENTRO)
-	g_HandAnims[10].offsetX = 0.0f;
+	g_HandAnims[10].offsetX = 0.25f;
 	LoadHandAnimationSheet(10, 45.0f, 22, 4, 76);
 
 	// 11 – Cerrar cuaderno (CENTRO)
@@ -820,7 +1003,22 @@ void InitHandAnimations()
 	g_HandAnims[14].offsetX = 0.0f;   // centrada, o un pelín a la derecha si quieres
 	LoadHandAnimationSheet(14, 45.0f, /*cols*/ 22, /*rows*/ 15, /*frames*/ 310);
 
+	// 15 – Credits (part 1)
+	LoadHandAnimationSheet(15, 45.0f, 22, 36, 791);
+
+	// 16 – Credits (part 2)
+	LoadHandAnimationSheet(16, 45.0f, 22, 36, 791);
+
+	// 17 – Credits (part 3)
+	LoadHandAnimationSheet(17, 45.0f, 22, 36, 791);
+
+	// 18 – Credits (part 4)
+	LoadHandAnimationSheet(18, 45.0f, 22, 36, 790);
+
+
 }
+// Forward declaration
+static void StartEndgameCutscene();
 
 
 void StartHandAnimation(int id)
@@ -840,6 +1038,45 @@ void StartHandAnimation(int id)
 	g_HandStartTime = glfwGetTime();
 
 	fprintf(stderr, "[MANS] Animacio START (%d)\n", id);
+
+	if (g_PendingEndgameFromBoat && g_CurrentHandAnim == 4)
+	{
+		g_PendingEndgameFromBoat = false;
+		StartEndgameCutscene();
+		return;
+	}
+
+
+	switch (id)
+	{
+	case 2:
+		PlaySoundOnce(ID_GUN);
+		break;
+	case 5:
+	case 14:
+		PlaySoundOnce(ID_LEATHER);
+		break;
+	case 8:
+		PlaySoundOnce(ID_FLASH_OFF);
+		break;
+	case 9:
+		PlaySoundOnce(ID_FLASH_ON);
+		break;
+	case 10:
+		PlaySoundOnce(ID_DOOR);
+		break;
+	case 11:
+		PlaySoundOnce(ID_CLOSE_BOOK);
+		break;
+	case 12:
+		PlaySoundOnce(ID_OPEN_BOOK);
+		break;
+	case 15:
+		PlaySoundOnce(ID_FINAL);
+		break;
+	default:
+		break;
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -849,89 +1086,41 @@ void StartHandAnimation(int id)
 bool g_HeadlightEnabled = true;
 bool g_FKeyPrev = false;
 
-void ActualitzaAnimacioMans(float /*dt*/)
+#include <deque>
+#include <initializer_list>
+
+static std::deque<int> g_CuaAnimMans;
+
+static bool HiHaAnimEnCua()
 {
-	if (!g_HandPlaying || g_CurrentHandAnim < 0 || g_CurrentHandAnim >= HAND_ANIM_COUNT)
-		return;
-
-	HandAnimation& anim = g_HandAnims[g_CurrentHandAnim];
-
-	int n = 0;
-	if (anim.tex && anim.frameCount > 0) {
-		n = anim.frameCount;          // Mode sheet
-	}
-	else if (!anim.frames.empty()) {
-		n = (int)anim.frames.size();  // Mode antic
-	}
-	else {
-		return;
-	}
-
-	const float srcFPS = (anim.srcFPS > 0.0f) ? anim.srcFPS : 24.0f;
-
-	double now = glfwGetTime();
-	float  t = float(now - g_HandStartTime);
-	if (t < 0.0f) t = 0.0f;
-
-	int frameIdx = (int)floorf(t * srcFPS);
-
-	if (frameIdx >= n) {
-		// Hem arribat al final de l'animació actual
-		frameIdx = n - 1;
-		g_HandFrame = frameIdx;
-		g_HandPlaying = false;
-
-		fprintf(stderr, "[MANS] Animacio END (%d)\n", g_CurrentHandAnim);
-
-		// ─────────────────────────────────────────────
-		// 1) STATE MACHINE DE LA LLANTERNA
-		// ─────────────────────────────────────────────
-		// ON: seqüència 9 (cerilla) -> 7 (linterna encendre) -> llum ON
-		if (g_FlashAnimState == FlashlightAnimState::TURNING_ON &&
-			g_CurrentHandAnim == 7 &&          // Anim 7 = "Linterna encender"
-			g_QueuedHandAnim < 0)              // ja no queda res en cua
-		{
-			g_HeadlightEnabled = true;
-			g_FlashAnimState = FlashlightAnimState::NONE;
-			fprintf(stderr, "[FLASH] Linterna ON després de l'animació.\n");
-		}
-
-		// OFF: seqüència només 8 (linterna apagar) -> llum OFF
-		if (g_FlashAnimState == FlashlightAnimState::TURNING_OFF &&
-			g_CurrentHandAnim == 8)            // Anim 8 = "Linterna apagar"
-		{
-			g_HeadlightEnabled = false;
-			g_FlashAnimState = FlashlightAnimState::NONE;
-			fprintf(stderr, "[FLASH] Linterna OFF després de l'animació.\n");
-		}
-
-		// ─────────────────────────────────────────────
-		// 2) OBRIR MAPA DE PALANQUES DESPRÉS D’OBRIR QUADERN
-		// ─────────────────────────────────────────────
-		if (g_PendingMapaOpenAfterAnim &&
-			g_CurrentHandAnim == HAND_ANIM_MAPA_OBRIR)   // = 12
-		{
-			g_PendingMapaOpenAfterAnim = false;
-			g_MapaPalanquesObrit = true;
-
-			fprintf(stderr, "[MAPA PALANQUES] Obrint mapa DESPRÉS animació mans\n");
-		}
-
-		// ─────────────────────────────────────────────
-		// 3) Si hi ha una animació en cua, la comencem ara
-		// ─────────────────────────────────────────────
-		if (g_QueuedHandAnim >= 0) {
-			int next = g_QueuedHandAnim;
-			g_QueuedHandAnim = -1;
-			StartHandAnimation(next);
-		}
-
-		return;
-	}
-
-	g_HandFrame = frameIdx;
+	return (g_QueuedHandAnim >= 0) || (!g_CuaAnimMans.empty());
 }
 
+static void BuidaCuaAnimMans()
+{
+	g_CuaAnimMans.clear();
+	g_QueuedHandAnim = -1;   // por si algo legacy estaba en cola
+}
+
+// Encola 1 anim. Si no hay nada reproduciéndose, arranca ya.
+static void EncolaAnimMans(int animId)
+{
+	if (animId < 0) return;
+
+	if (!g_HandPlaying && g_CuaAnimMans.empty())
+	{
+		StartHandAnimation(animId);
+		return;
+	}
+
+	g_CuaAnimMans.push_back(animId);
+}
+
+// Overload para permitir EncolaAnimMans({15,16,17,18})
+static void EncolaAnimMans(std::initializer_list<int> ids)
+{
+	for (int id : ids) EncolaAnimMans(id);
+}
 
 
 
@@ -1089,7 +1278,7 @@ const float ROOM_XMIN = -4.0f, ROOM_XMAX = +4.0f;
 const float ROOM_ZMIN = -3.0f, ROOM_ZMAX = +3.0f;
 const float ROOM_YMIN = 0.0f, ROOM_YMAX = +3.0f;
 const float FPV_RADIUS = 0.30f;
-bool g_IntroHandsPlayed = false;
+
 
 
 enum class PlantaBarco { BAIXA = 0, MITJA = 1, SUPERIOR = 2 };
@@ -1175,7 +1364,8 @@ void DibuixaHUDMatapatos()
 	if (g_MatapatosShowRewardMsg) {
 		double now = glfwGetTime();
 		if (now - g_MatapatosRewardMsgStart < g_MatapatosRewardMsgDurada) {
-			claimRewards(io,0);
+			claimRewards(io, 1);
+			joc_Matapatos_finalitzat = true;
 		}
 		else {
 			g_MatapatosShowRewardMsg = false;
@@ -1209,8 +1399,8 @@ void DibuixaHUDMatapatos()
 		ImGui::Begin("HUD_Matapatos_Prompt", nullptr, flags);
 		ImGui::Text(
 			g_Pad.connected
-			? "Prem X per pujar les escales"
-			: "Prem E per pujar les escales"
+			? "Prem X per disparar"
+			: "Prem E per disparar"
 		);
 
 		ImGui::End();
@@ -1379,95 +1569,398 @@ void DibuixaMapaPalanquesOverlay()
 // ─────────────────────────────────────────────────────────────────────────────
 // HUD d'interaccio contextual (portes / escales / barca)
 // ─────────────────────────────────────────────────────────────────────────────
-
 void DibuixaHUDInteraccioContextual()
 {
-	// Si no hi ha res interactuable, no mostrem res
-	if (!g_InteraccioDisponible)
-		return;
+	if (!g_InteraccioDisponible) return;
+	if (act_state != GameState::GAME || !g_FPV) return;
+	if (g_EstatMatapatos == EstatMatapatos::JUGANT) return;
+	if (g_InventariObert) return;
 
-	// Només en joc i en FPV
-	if (act_state != GameState::GAME || !g_FPV)
-		return;
-
-	// No molestar si tenim el minijoc obert o l’inventari
-	if (g_EstatMatapatos == EstatMatapatos::JUGANT)
-		return;
-	if (g_InventariObert)
+	// ✅ PRIORIDAD: si el Matapatos está disponible, que NO pise el prompt
+	// (así no verás “pujar escales” encima del Matapatos)
+	if (g_MatapatosInteractuable && !g_MatapatosSuperat && g_EstatMatapatos == EstatMatapatos::OFF)
 		return;
 
 	ImGuiIO& io = ImGui::GetIO();
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.90f),
+		ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 
-	// A baix al centre (igual que el prompt del Matapatos)
-	ImGui::SetNextWindowPos(
-		ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.90f),
-		ImGuiCond_Always,
-		ImVec2(0.5f, 0.5f)
-	);
-
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
-		| ImGuiWindowFlags_NoResize
-		| ImGuiWindowFlags_NoMove
-		| ImGuiWindowFlags_NoScrollbar
-		| ImGuiWindowFlags_AlwaysAutoResize
-		| ImGuiWindowFlags_NoSavedSettings;
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings;
 
 	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f);
-	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.75f));
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0.75f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
 
 	ImGui::Begin("HUD_InteraccioContextual", nullptr, flags);
 
-	const char* text = "Prem E per interactuar";
+	const char* b = BtnInteract();
 
 	switch (g_InteraccioContext)
 	{
-	case TipusInteraccioContext::BAIXA_A_MITJA:
-		text = "Prem E per pujar a la planta mitja";
-		break;
-	case TipusInteraccioContext::MITJA_A_BAIXA:
-		text = "Prem E per baixar a la planta inferior";
-		break;
-	case TipusInteraccioContext::MITJA_A_SUPERIOR:
-		text = "Prem E per pujar a la coberta";
-		break;
-	case TipusInteraccioContext::SUPERIOR_A_MITJA:
-		text = "Prem E per baixar a la planta mitja";
-		break;
-	case TipusInteraccioContext::SUPERIOR_A_TIMO:
-		text = "Prem E per pujar al pis del timó";
-		break;
-	case TipusInteraccioContext::TIMO_A_SUPERIOR:
-		text = "Prem E per baixar a la coberta";
-		break;
-	case TipusInteraccioContext::ESCAPAR_BARCA:
-		text = "Prem E per pujar a la barca i escapar";
-		break;
-	case TipusInteraccioContext::COFRE_CODI:
-		text = "Prem E per obrir el cofre";
-		break;
+	case TipusInteraccioContext::BAIXA_A_MITJA:        ImGui::Text("Prem %s per pujar a la planta mitja", b); break;
+	case TipusInteraccioContext::MITJA_A_BAIXA:        ImGui::Text("Prem %s per baixar a la planta inferior", b); break;
+	case TipusInteraccioContext::MITJA_A_SUPERIOR:     ImGui::Text("Prem %s per pujar a la coberta", b); break;
+	case TipusInteraccioContext::SUPERIOR_A_MITJA:     ImGui::Text("Prem %s per baixar a la planta mitja", b); break;
+	case TipusInteraccioContext::SUPERIOR_A_TIMO:      ImGui::Text("Prem %s per pujar al pis del timó", b); break;
+	case TipusInteraccioContext::TIMO_A_SUPERIOR:      ImGui::Text("Prem %s per baixar a la coberta", b); break;
+
+	case TipusInteraccioContext::ESCAPAR_BARCA:        ImGui::Text("Prem %s per pujar a la barca i escapar", b); break;
+
+	case TipusInteraccioContext::COFRE_CODI:           ImGui::Text("Prem %s per obrir el cofre", b); break;
+	case TipusInteraccioContext::COFRE_FINAL:          ImGui::Text("Prem %s per obrir el cofre", b); break;
+
 	case TipusInteraccioContext::PORTA_CAPABAIX:
-		text = "Prem E per obrir la porta";
+		if (joc_quadres_finalitzat) ImGui::Text("Prem %s per obrir la porta", b);
+		else                        ImGui::Text("La porta esta tancada amb clau");
 		break;
+
 	case TipusInteraccioContext::PORTA_CAPADALT:
-		text = "Prem E per obrir la porta";
+		if (joc_palanques_finalitzat) ImGui::Text("Prem %s per obrir la porta", b);
+		else                          ImGui::Text("La porta esta tancada amb clau");
 		break;
+
 	case TipusInteraccioContext::PORTA_SUPERIOR_ENT:
-		text = "Prem E per trencar la porta";
+		if (joc_Matapatos_finalitzat) ImGui::Text("Prem %s per trencar la porta", b);
+		else                          ImGui::Text("La porta esta molt oxidada, es pot trencar amb una arma");
 		break;
+
 	case TipusInteraccioContext::PORTA_SUPERIOR_SURT:
-		text = "Prem E per obrir la porta";
+		if (joc_simbolsFinal_finalitzat) ImGui::Text("Prem %s per obrir la porta", b);
+		else                             ImGui::Text("La porta esta tancada amb clau");
+		break;
+
+	case TipusInteraccioContext::PALANCA_1:
+	case TipusInteraccioContext::PALANCA_2:
+	case TipusInteraccioContext::PALANCA_3:
+	case TipusInteraccioContext::PALANCA_4:
+	case TipusInteraccioContext::PALANCA_5:
+	case TipusInteraccioContext::PALANCA_6:
+	case TipusInteraccioContext::PALANCA_7:
+	case TipusInteraccioContext::PALANCA_8:
+		ImGui::Text("Prem %s per moure la palanca", b);
 		break;
 
 	default:
+		ImGui::Text("Prem %s per interactuar", b);
 		break;
 	}
-
-	ImGui::Text("%s", text);
 
 	ImGui::End();
 	ImGui::PopStyleColor(2);
 	ImGui::PopStyleVar();
+}
+
+
+
+
+void ActualitzaAnimacioMans(float /*dt*/)
+{
+	if (!g_HandPlaying || g_CurrentHandAnim < 0 || g_CurrentHandAnim >= HAND_ANIM_COUNT)
+		return;
+
+	HandAnimation& anim = g_HandAnims[g_CurrentHandAnim];
+
+	int n = 0;
+	if (anim.tex && anim.frameCount > 0) {
+		n = anim.frameCount;          // Mode sheet
+	}
+	else if (!anim.frames.empty()) {
+		n = (int)anim.frames.size();  // Mode antic
+	}
+	else {
+		return;
+	}
+
+	const float srcFPS = (anim.srcFPS > 0.0f) ? anim.srcFPS : 24.0f;
+
+	double now = glfwGetTime();
+	float  t = float(now - g_HandStartTime);
+	if (t < 0.0f) t = 0.0f;
+
+	int frameIdx = (int)floorf(t * srcFPS);
+
+	// ─────────────────────────────────────────────
+	// FIN DE ANIMACIÓN
+	// ─────────────────────────────────────────────
+	if (frameIdx >= n)
+	{
+		frameIdx = n - 1;
+		g_HandFrame = frameIdx;
+		g_HandPlaying = false;
+
+		fprintf(stderr, "[MANS] Animacio END (%d)\n", g_CurrentHandAnim);
+
+		// ============================================================
+// PUERTAS: abrir SOLO cuando termine la animación 10
+// ============================================================
+
+		// ============================================================
+// PUERTAS: abrir SOLO cuando termine la animación correspondiente
+// (10 para puertas normales, 6 para la puerta superior entrada)
+// ============================================================
+		if (g_PendingDoorOpen != PendingDoorOpen::NONE &&
+			((g_PendingDoorOpen == PendingDoorOpen::PUERTA3 && g_CurrentHandAnim == 6) ||
+				(g_PendingDoorOpen != PendingDoorOpen::PUERTA3 && g_CurrentHandAnim == 10)))
+		{
+			switch (g_PendingDoorOpen)
+			{
+			case PendingDoorOpen::PUERTA4: /* ... igual ... */ break;
+			case PendingDoorOpen::PUERTA1: /* ... igual ... */ break;
+			case PendingDoorOpen::PUERTA2: /* ... igual ... */ break;
+
+			case PendingDoorOpen::PUERTA3:
+				portes_obertes[1] = true;
+				for (COBJModel* obj : vObOBJ)
+				{
+					if (obj->getName() == "puerta3.obj")      obj->changeRendering(false);
+					if (obj->getName() == "puerta3_open.obj") obj->changeRendering(true);
+				}
+				for (auto* hitbox : vHitboxOBJ)
+					if (hitbox->getName() == "HITBOX_WALL15_puerta.obj")
+						hitbox->setHitboxActive(false);
+
+				idx_clue = 4;
+				break;
+
+			default: break;
+			}
+
+			g_PendingDoorOpen = PendingDoorOpen::NONE;
+			g_FVP_move = true;
+			FPV_SetMouseCapture(true);
+
+			fprintf(stderr, "[DOOR] Open AFTER anim (%d)\n", g_CurrentHandAnim);
+			return;
+		}
+
+
+
+		if (g_EscapeAnimState == EscapeAnimState::CELEBRATING &&
+			g_CurrentHandAnim == ESCAPE_CELEBRATE_ANIM)
+		{
+			g_EscapeAnimState = EscapeAnimState::NONE;
+			fprintf(stderr, "[ESCAPE] Celebrate END -> StartEndgameCutscene()\n");
+
+			StartEndgameCutscene();   // aquí ya TP + cutscene final
+			return;                   // ✅ no colas este frame
+		}
+
+
+		// ============================================================
+		// 1) STATE MACHINE DE LA LLANTERNA (9 -> 7 -> ON) / (8 -> OFF)
+		//    (prioridad absoluta: si aquí arrancamos otra anim, RETURN)
+		// ============================================================
+
+		// TURNING_ON:
+		//  - cuando acaba 9 (cerilla) -> arrancar 7 (mostrar linterna)
+		//  - cuando acaba 7 -> encender linterna REAL y salir de la state machine
+		if (g_FlashAnimState == FlashlightAnimState::TURNING_ON)
+		{
+			if (g_CurrentHandAnim == 9)
+			{
+				// Si por otro lado habías encolado 7, lo limpiamos para que NO se repita
+				if (g_QueuedHandAnim == 7) g_QueuedHandAnim = -1;
+				while (!g_CuaAnimMans.empty() && g_CuaAnimMans.front() == 7)
+					g_CuaAnimMans.pop_front();
+
+				StartHandAnimation(7);
+				fprintf(stderr, "[FLASH] 9 END -> Start 7\n");
+				return; // IMPORTANTÍSIMO: no sigas con colas este frame
+			}
+
+			if (g_CurrentHandAnim == 7)
+			{
+				g_HeadlightEnabled = true;
+				g_FlashAnimState = FlashlightAnimState::NONE;
+				fprintf(stderr, "[FLASH] 7 END -> Headlight ON\n");
+
+				// NO reinicies la 7 aquí (eso era lo que causaba repetición).
+				// Si quieres “mantener” la linterna visible, ya se queda en el último frame.
+			}
+		}
+
+		// TURNING_OFF:
+		//  - cuando acaba 8 -> apagar linterna REAL y salir
+		if (g_FlashAnimState == FlashlightAnimState::TURNING_OFF &&
+			g_CurrentHandAnim == 8)
+		{
+			g_HeadlightEnabled = false;
+			g_FlashAnimState = FlashlightAnimState::NONE;
+			fprintf(stderr, "[FLASH] 8 END -> Headlight OFF\n");
+			// aquí dejamos que sigan colas si existen
+		}
+
+		// ============================================================
+		// 2) OBRIR MAPA DESPRÉS D’OBRIR QUADERN
+		// ============================================================
+		if (g_PendingMapaOpenAfterAnim &&
+			g_CurrentHandAnim == HAND_ANIM_MAPA_OBRIR)
+		{
+			g_PendingMapaOpenAfterAnim = false;
+			g_MapaPalanquesObrit = true;
+			fprintf(stderr, "[MAPA PALANQUES] Obrint mapa DESPRÉS animació mans\n");
+		}
+
+		// ============================================================
+		// 3) CUES D’ANIMACIONS (legacy > nova)
+		// ============================================================
+
+		// Legacy: un sol següent
+		if (g_QueuedHandAnim >= 0) {
+			int next = g_QueuedHandAnim;
+			g_QueuedHandAnim = -1;
+			StartHandAnimation(next);
+			return;
+		}
+
+		// Nova: cua múltiple
+		if (!g_CuaAnimMans.empty()) {
+			int next = g_CuaAnimMans.front();
+			g_CuaAnimMans.pop_front();
+			StartHandAnimation(next);
+			return;
+		}
+
+		return;
+	}
+
+	// ─────────────────────────────────────────────
+	// ANIMACIÓN EN CURSO
+	// ─────────────────────────────────────────────
+	g_HandFrame = frameIdx;
+}
+
+
+
+
+
+void TeleportaJugador(const glm::vec3& novaPos, float yawNou, float pitchNou)
+{
+	// Posició base: partim de la posició dels ulls que li passes
+	g_FPVPos = novaPos;
+
+	// Com els teus destins (g_DestZona...) tenen la Y a nivell d'ulls,
+	// el terra de la planta és Ymin = eyeY - g_PlayerEye
+	g_RoomYMin = g_FPVPos.y - g_PlayerEye;
+	g_RoomYMax = g_RoomYMin + g_RoomHeight;
+
+	// Assegurem que l'alçada dels ulls queda exacta respecte el terra
+	g_FPVPos.y = g_RoomYMin + g_PlayerEye;
+
+	// Reset de física vertical
+	g_VelY = 0.0f;
+	g_Grounded = true;
+	g_JumpHeld = false;
+
+	// Orientació
+	g_FPVYaw = yawNou;
+	//g_FPVPitch = glm::clamp(pitchNou, -89.0f, 89.0f);
+
+	// Reset head-bobbing (perquè no es quedi desfassat després del TP)
+	g_BobOffY = 0.0f;
+	g_BobPhase = 0.0f;
+	g_BobBlend = 0.0f;
+
+	// Per si el Matapatos havia aplicat zoom
+	g_MatapatosZoomFactor = 0.0f;
+
+	fprintf(stderr,
+		"[TP] TeleportaJugador: pos=(%.2f, %.2f, %.2f) yaw=%.2f pitch=%.2f Ymin=%.2f Ymax=%.2f\n",
+		g_FPVPos.x, g_FPVPos.y, g_FPVPos.z,
+		g_FPVYaw, g_FPVPitch, g_RoomYMin, g_RoomYMax);
+}
+
+
+
+// mamahuevo
+
+static bool g_EndgameCreditsStarted = false;
+
+static void StartEndgameCutscene()
+{
+	if (!g_FPV) return;
+
+	if (g_PendingEndgameFromBoat && g_HandPlaying)
+	{
+		fprintf(stderr, "[ENDGAME] defer: waiting celebration anim to finish\n");
+		return;
+	}
+
+	g_EndgameActive = true;
+	g_EndgameState = EndgameState::TP_LOCK;
+	g_EndgameT = 0.0f;
+
+	g_EndgameCreditsStarted = false;
+
+	// TP + lock input...
+	//g_FPVPos = g_EndPos;
+	//g_FPVYaw = g_EndYaw;
+	//g_FPVPitch = g_EndPitch;
+
+	g_CurrentFadeState = FADE_OUT;
+
+
+	g_FVP_move = false;
+	FPV_SetMouseCapture(false);
+	FPV_ApplyView();
+
+	BuidaCuaAnimMans(); // por si acaso
+}
+
+static void UpdateEndgameCutscene(float dt)
+{
+	if (!g_EndgameActive) return;
+
+	g_EndgameT += dt_real;	g_FPVYaw = g_EndYaw;
+
+	switch (g_EndgameState)
+	{
+	case EndgameState::TP_LOCK:
+		g_EndgameState = EndgameState::LOOKDOWN;
+		g_EndgameT = 0.0f;
+		break;
+
+	case EndgameState::LOOKDOWN:
+		g_FPVPitch = approachf(g_FPVPitch, g_EndPitchTarget, g_EndPitchSpeed * dt_real);
+		FPV_ApplyView();
+
+		if (!g_EndgameCreditsStarted && g_FPVPitch <= -20.0f)
+		{
+			g_EndgameCreditsStarted = true;
+
+			BuidaCuaAnimMans();
+			EncolaAnimMans({ 15,16,17,18 });
+
+			g_EndgameState = EndgameState::CREDITS;
+			g_EndgameT = 0.0f;
+		}
+		break;
+
+	case EndgameState::CREDITS:
+		// aquí SOLO esperas a que acaben
+		if (!g_HandPlaying && g_CuaAnimMans.empty())
+		{
+			g_EndgameState = EndgameState::CLOSE_BOOK;
+			g_EndgameT = 0.0f;
+		}
+		break;
+
+	case EndgameState::CLOSE_BOOK:
+		if (!g_HandPlaying && g_CuaAnimMans.empty() && g_EndgameT > 0.2f)
+			g_EndgameState = EndgameState::BLACK;
+		break;
+
+	case EndgameState::BLACK:
+		break;
+	}
+}
+
+
+static bool IsEndgameBlack()
+{
+	return g_EndgameActive && (g_EndgameState == EndgameState::BLACK);
 }
 
 
@@ -1493,45 +1986,56 @@ void DibuixaInventari()
 	float winWidth = io.DisplaySize.x * 0.45f;
 	float winHeight = io.DisplaySize.y * 0.8f;
 
-	// Posició centrada
-	ImVec2 winPos((io.DisplaySize.x - winWidth) * 0.5f,
-		(io.DisplaySize.y - winHeight) * 0.5f);
+	ImVec2 winPos(
+		(io.DisplaySize.x - winWidth) * 0.5f,
+		(io.DisplaySize.y - winHeight) * 0.5f
+	);
 
 	// La finestra ocupa tota la pantalla (invisible)
 	ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
 	ImGui::SetNextWindowSize(io.DisplaySize, ImGuiCond_Always);
 	ImGui::SetNextWindowBgAlpha(0.0f);
 
-	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
-		| ImGuiWindowFlags_NoResize
-		| ImGuiWindowFlags_NoMove
-		| ImGuiWindowFlags_NoScrollbar
-		| ImGuiWindowFlags_NoSavedSettings;
+	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoSavedSettings;
 
 	ImGui::Begin("INVENTARI", nullptr, flags);
 
-	// Imatge de fons centrada
-	if (texInventariFons != 0) {
+	// --- FONS ---
+	if (texInventariFons != 0)
+	{
 		ImTextureID texId = (ImTextureID)(intptr_t)texInventariFons;
 		ImVec2 p0 = winPos;
 		ImVec2 p1 = ImVec2(winPos.x + winWidth, winPos.y + winHeight);
 		ImGui::GetWindowDrawList()->AddImage(texId, p0, p1);
 	}
 
-	ImGui::SetCursorPos(ImVec2(winPos.x - ImGui::GetWindowPos().x + 30,
-		winPos.y - ImGui::GetWindowPos().y + 30));
+	// ✅ ICONES ESCALATS SEGONS EL FONS (NO LA PANTALLA)
+	float iconSize = winWidth * 0.1f;        //<--- Cambiar
+	float horizontalPadding = iconSize * 0.16f;
+	float verticalPadding = iconSize * 0.15f;
 
-	const float iconSize = 64.0f;
-	const float horitzontalPadding = 12.0f; 
-	const float verticalPadding = 20.0f;
-	const int   cols = 4;
+	int cols = 4;
 	int colActual = 0;
+
+	ImGui::SetCursorPos(ImVec2(
+		winPos.x - ImGui::GetWindowPos().x + iconSize * 0.45f,  //<--- Cambiar
+		winPos.y - ImGui::GetWindowPos().y + iconSize * 0.60f   //<--- Cambiar
+	));
+
+	float fontScale = io.DisplaySize.y * 0.0018f; //<--- Cambiar
+	ImGui::SetWindowFontScale(fontScale);
 
 	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
 	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.15f));
 	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.25f));
 
-	for (int i = 0; i < (int)g_Inventari.size(); ++i) {
+	for (int i = 0; i < (int)g_Inventari.size(); ++i)
+	{
 		auto& item = g_Inventari[i];
 		ImGui::PushID(i);
 
@@ -1549,8 +2053,8 @@ void DibuixaInventari()
 		ImGui::PopID();
 
 		colActual++;
-		if (colActual < cols) ImGui::SameLine(0.0f, horitzontalPadding);
-		else 
+		if (colActual < cols) ImGui::SameLine(0.0f, horizontalPadding);
+		else
 		{
 			colActual = 0;
 			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + verticalPadding);
@@ -1567,15 +2071,17 @@ void DibuixaInventari()
 		// Centrar el nom
 		float textWidth = ImGui::CalcTextSize(sel.nom.c_str()).x;
 		float posX = winPos.x - ImGui::GetWindowPos().x + (winWidth - textWidth) * 0.5f;
-		float posY = winPos.y - ImGui::GetWindowPos().y + winHeight - 130;
-		ImGui::SetCursorPos(ImVec2(posX, posY));
-		ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "%s", sel.nom.c_str());
+		float posY = winPos.y - ImGui::GetWindowPos().y + winHeight - iconSize * 2.0f;
 
-		// Centrar la descripció (wrap)
-		if (!sel.descripcio.empty()) {
-			float descWidth = winWidth - 80; // ample màxim
+		ImGui::SetCursorPos(ImVec2(posX, posY));
+		ImGui::TextColored(ImVec4(1, 1, 1, 1), "%s", sel.nom.c_str());
+
+		if (!sel.descripcio.empty())
+		{
+			float descWidth = winWidth - iconSize * 1.2f;
 			float posXdesc = winPos.x - ImGui::GetWindowPos().x + (winWidth - descWidth) * 0.5f;
-			ImGui::SetCursorPos(ImVec2(posXdesc, posY + 25));
+
+			ImGui::SetCursorPos(ImVec2(posXdesc, posY + iconSize * 0.4f));
 			ImGui::PushTextWrapPos(ImGui::GetCursorPos().x + descWidth);
 			ImGui::TextWrapped("%s", sel.descripcio.c_str());
 			ImGui::PopTextWrapPos();
@@ -1586,7 +2092,8 @@ void DibuixaInventari()
 		const char* msg = "Fes click sobre un objecte per veure'n la descripcio.";
 		float textWidth = ImGui::CalcTextSize(msg).x;
 		float posX = winPos.x - ImGui::GetWindowPos().x + (winWidth - textWidth) * 0.5f;
-		float posY = winPos.y - ImGui::GetWindowPos().y + winHeight - 130;
+		float posY = winPos.y - ImGui::GetWindowPos().x + winHeight - iconSize * 2.0f;
+
 		ImGui::SetCursorPos(ImVec2(posX, posY));
 		ImGui::TextDisabled("%s", msg);
 	}
@@ -1745,6 +2252,373 @@ void carregarEscenaInicial() // popo
 
 }
 
+//sobel amarillo
+
+static glm::vec3 GetFrontFromYawPitch(float yawDeg, float pitchDeg)
+{
+	const float cy = cosf(glm::radians(yawDeg));
+	const float sy = sinf(glm::radians(yawDeg));
+	const float cp = cosf(glm::radians(pitchDeg));
+	const float sp = sinf(glm::radians(pitchDeg));
+	return glm::normalize(glm::vec3(cy * cp, sp, sy * cp));
+}
+
+static void ActualitzaSobelHighlight()
+{
+	g_SobelNomHighlight.clear();
+	if (!g_FPV) return;
+
+	float bestD2 = 1e30f;
+	int   bestIdx = -1;
+
+	for (int i = 0; i < (int)g_ZonesSobel.size(); ++i)
+	{
+		const auto& z = g_ZonesSobel[i];
+
+		if (fabsf(g_FPVPos.y - z.pos.y) > z.yTol)  continue;
+		if (fabsf(g_FPVPos.x - z.pos.x) > z.halfX) continue;
+		if (fabsf(g_FPVPos.z - z.pos.z) > z.halfZ) continue;
+
+		const float dx = g_FPVPos.x - z.pos.x;
+		const float dz = g_FPVPos.z - z.pos.z;
+		const float d2 = dx * dx + dz * dz;
+
+		// gana el más cercano; si empatan, gana el primero (no cambiamos best)
+		if (d2 < bestD2) {
+			bestD2 = d2;
+			bestIdx = i;
+		}
+	}
+
+	if (bestIdx >= 0)
+		g_SobelNomHighlight = g_ZonesSobel[bestIdx].nomObj;
+}
+
+
+
+static void InitZonesSobel()
+{
+	g_ZonesSobel.clear();
+
+	// Ajusta a tu gusto:
+	const float half = 0.9f;   // cuadrado ~1.8m de ancho
+	const float yTol = 1.0f;   // tolerancia en Y
+
+	// ---------- ANCLA ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "INTERACTUABLE_ancla.obj"; // IMPORTANTÍSIMO: que sea EXACTO al getName()
+		z.pos = glm::vec3(-6.46f, 8.30f, 6.24f);
+		z.halfX = half;
+		z.halfZ = half;
+		z.yTol = yTol;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- ESPADA ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "INTERACTUABLE_espada.obj"; // o "INTERACTUABLE_espada_gir.obj" si ese es el real
+		z.pos = glm::vec3(-2.23f, 8.30f, -3.31f);
+		z.halfX = half;
+		z.halfZ = half;
+		z.yTol = yTol;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- BOTELLA ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "INTERACTUABLE_botella.obj"; // o "INTERACTUABLE_botella_gir.obj" si ese es el real
+		z.pos = glm::vec3(5.15f, 8.30f, -2.56f);
+		z.halfX = half;
+		z.halfZ = half;
+		z.yTol = yTol;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- PALA ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "INTERACTUABLE_pala.obj"; // pon el nombre exacto
+		z.pos = glm::vec3(1.89f, 8.30f, 6.47f);
+		z.halfX = half;
+		z.halfZ = half;
+		z.yTol = yTol;
+		g_ZonesSobel.push_back(z);
+	}
+
+
+	// ---------- PORTA 1 ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "puerta1.obj";                 // nombre exacto
+		z.pos = glm::vec3(5.19f, 5.20f, 0.29f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- PORTA 4 ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "puerta4.obj";
+		z.pos = glm::vec3(-7.21f, 5.20f, 0.35f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- BARCA HUIDA ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "barca_huida.obj";
+		z.pos = glm::vec3(-11.69f, 8.30f, -0.12f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- PORTA 2 ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "puerta2.obj";
+		z.pos = glm::vec3(-6.93f, 8.30f, 0.41f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- PORTA 3 ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "puerta3.obj";
+		z.pos = glm::vec3(7.65f, 8.30f, 0.27f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- COFRE CERRADO ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "cofre_arriba_cerrado.obj";
+		z.pos = glm::vec3(4.52f, 5.20f, 5.34f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- PERGAMINO ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "pergamino.obj";
+		z.pos = glm::vec3(-5.09f, 1.70f, -1.69f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- BARRIL ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "INTERACTUABLE_barril.obj";
+		z.pos = glm::vec3(-0.22f, 8.30f, 1.14f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- BOMBA (NUEVO) ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "INTERACTUABLE_bomba.obj";
+		z.pos = glm::vec3(5.05f, 8.70f, -5.94f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- CALAVERA (MOVIDA) ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "INTERACTUABLE_calavera.obj";
+		z.pos = glm::vec3(-12.29f, 11.70f, -0.70f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	//  ---------- COFRE FINAL CERRADO (NUEVO) ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "cofre_final_cerrado.obj";
+		z.pos = glm::vec3(-6.40f, 8.70f, 3.10f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// ---------- HACHA (NUEVO) ----------
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "INTERACTUABLE_hacha.obj";
+		z.pos = glm::vec3(-9.98f, 11.70f, 4.80f);
+		z.halfX = 0.9f;
+		z.halfZ = 0.9f;
+		z.yTol = 1.0f;  // si no engancha bien en esa planta, prueba 1.5f o 2.0f
+		g_ZonesSobel.push_back(z);
+	}
+
+
+	// ===========================
+	// PALANCAS (UP / DOWN)
+	// ===========================
+
+	// PALANCA 6 WHITE
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca6_white_up.obj";
+		z.pos = glm::vec3(-8.11f, 1.70f, -2.71f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca6_white_down.obj";
+		z.pos = glm::vec3(-8.09f, 1.70f, -2.71f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// PALANCA 5 BLACK
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca5_black_up.obj";
+		z.pos = glm::vec3(-5.79f, 1.70f, -3.66f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca5_black_down.obj";
+		z.pos = glm::vec3(-5.81f, 1.70f, -3.66f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// PALANCA 1 BLACK
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca1_black_up.obj";
+		z.pos = glm::vec3(-1.16f, 1.70f, -3.28f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca1_black_down.obj";
+		z.pos = glm::vec3(-1.18f, 1.70f, -3.28f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// PALANCA 2 WHITE
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca2_white_up.obj";
+		z.pos = glm::vec3(2.27f, 1.70f, -3.61f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca2_white_down.obj";
+		z.pos = glm::vec3(2.29f, 1.70f, -3.61f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// PALANCA 7 BLACK
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca7_black_up.obj";
+		z.pos = glm::vec3(9.80f, 1.70f, -1.87f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca7_black_down.obj";
+		z.pos = glm::vec3(9.82f, 1.70f, -1.87f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// PALANCA 8 WHITE
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca8_white_up.obj";
+		z.pos = glm::vec3(9.90f, 1.70f, 2.49f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca8_white_down.obj";
+		z.pos = glm::vec3(9.92f, 1.70f, 2.49f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// PALANCA 3 BLACK
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca3_black_up.obj";
+		z.pos = glm::vec3(-3.21f, 1.70f, 4.05f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca3_black_down.obj";
+		z.pos = glm::vec3(-3.23f, 1.70f, 4.05f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+	// PALANCA 4 BLACK
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca4_black_up.obj";
+		z.pos = glm::vec3(0.76f, 1.70f, 4.04f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+	{
+		ZonaSobelInteractiva z;
+		z.nomObj = "palanca4_black_down.obj";
+		z.pos = glm::vec3(0.74f, 1.70f, 4.04f);
+		z.halfX = 0.9f; z.halfZ = 0.9f; z.yTol = 1.0f;
+		g_ZonesSobel.push_back(z);
+	}
+
+
+}
+
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entrar i sortir del mode FPV (reutilitzable des d’InitGL i des del checkbox)
@@ -1755,17 +2629,30 @@ static void EnterFPV() {
 	g_ShowRoom = true;
 
 	carregarEscenaInicialMultiObj();
+	InitZonesSobel();
 	OnVistaSkyBox();
 
 	for (COBJModel* obj : vObOBJ)//pattata; solucion provisional
 	{
 		if (obj->getName() == "cofre_arriba_abierto.obj")  obj->changeRendering(false);
-		if (obj->getName() == "cofre.obj")  obj->changeRendering(false);
-		if (obj->getName() == "puerta1_open.obj")  obj->changeRendering(false);
-		if (obj->getName() == "puerta2_open.obj")  obj->changeRendering(false);
-		if (obj->getName() == "puerta3_open.obj")  obj->changeRendering(false);
-		if (obj->getName() == "puerta4_open.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "cofre.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "cofre_arriba_abierto.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "cofre_final_abierto.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "puerta1_open.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "puerta2_open.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "puerta3_open.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "puerta4_open.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "palanca1_black_down.obj")  obj->changeRendering(false);  //PALANCAZZZ esto no tocar, solo pa entender
+		else if (obj->getName() == "palanca2_white_down.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "palanca3_black_down.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "palanca4_black_down.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "palanca5_black_down.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "palanca6_white_down.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "palanca7_black_down.obj")  obj->changeRendering(false);
+		else if (obj->getName() == "palanca8_white_down.obj")  obj->changeRendering(false);
 	}
+
+	PrintPalancasPositionsFromModels();
 
 	// “Spawn” al centre
 	g_FPV = true;
@@ -1773,18 +2660,20 @@ static void EnterFPV() {
 	g_FPVYaw = 0.0f;
 	g_FPVPitch = 0.0f;
 
-	// Captura de ratolí
 	FPV_SetMouseCapture(false);
 
-	// Head bob per defecte
 	g_BobEnabled = true;
 	g_BobAmpY = 0.041f;
 	g_BobBiasY = -0.040f;
 	g_StepLenWalk = 2.40f;
 	g_StepLenSprint = 3.00f;
 	g_BobSmoothingHz = 12.0f;
+
+	InitZonesSobel();   // <-- ESTA ES LA CLAVE
+
 	fpv_started = true;
 }
+
 
 static void ExitFPV() {
 	g_FPV = false;
@@ -1794,6 +2683,9 @@ static void ExitFPV() {
 	g_ShowRoom = false;
 	ClearProps();
 }
+
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POSTPROC: SOBEL + quad de pantalla completa
@@ -2105,7 +2997,7 @@ void ActualitzaMatapatos(float dt)
 
 		AturaMatapatos();
 	}
-	
+
 }
 
 
@@ -2198,7 +3090,7 @@ void ProcessaDisparMatapatos(GLFWwindow* window)
 			haEncertat = true;
 
 			PlaySoundOnce(ID_QUACK);
-			
+
 
 			fprintf(stderr, "[MATAPATOS] HIT! Punts = %d\n", g_PuntsMatapatos);
 			break;  // només un pato per tret
@@ -3120,6 +4012,10 @@ static float clampf(float x, float a, float b) { return x < a ? a : (x > b ? b :
 void FPV_UpdateCamera(GLFWwindow* window, float dt)
 {
 	if (!g_FPV || !g_FPVCaptureMouse) return;
+	if (g_EndgameActive) return;
+	if (g_MapaPalanquesObrit) return;
+
+
 
 	// ── Ratolí (només si el cursor està capturat) ───────────────────────────
 	int ww, hh;
@@ -3181,32 +4077,48 @@ void FPV_UpdateCamera(GLFWwindow* window, float dt)
 	// (Efectes de càmera addicionals anirien aquí si en poses)
 }
 
+static void StartEscapeSequence_NoTP()
+{
+	if (g_EscapeAnimState != EscapeAnimState::NONE) return;
+	if (g_EndgameActive) return;
+	if (g_HandPlaying) return;
+
+	g_EscapeAnimState = EscapeAnimState::CELEBRATING;
+
+	// Bloquea jugador mientras celebra
+	g_FVP_move = false;
+	FPV_SetMouseCapture(false);
+
+	// Limpia colas por seguridad
+	BuidaCuaAnimMans();
+	g_QueuedHandAnim = -1;
+
+	StartHandAnimation(ESCAPE_CELEBRATE_ANIM);
+	fprintf(stderr, "[ESCAPE] Start celebrate %d (NO TP)\n", ESCAPE_CELEBRATE_ANIM);
+}
+
+
 
 void ToggleFlashlightWithAnim()
 {
-	// Si ja hi ha una seqüència en marxa, ignorem nous toggles
-	if (g_FlashAnimState != FlashlightAnimState::NONE)
-		return;
+	if (g_FlashAnimState != FlashlightAnimState::NONE) return;
+	if (g_HandPlaying) return;
 
-	// Opcional: no comencem seqüència si ja hi ha una animació de mans
-	if (g_HandPlaying)
-		return;
+	// MUY IMPORTANTE: limpia cola "simple" si la usas en otras cosas
+	g_QueuedHandAnim = -1;
 
 	if (!g_HeadlightEnabled) {
-		// Estava OFF → volem encendre: 9 (cerilla) → 7 (llanterna) → ON
 		g_FlashAnimState = FlashlightAnimState::TURNING_ON;
-		StartHandAnimation(9);   // Animation9 - Encender cerilla
+		StartHandAnimation(9); // cerilla
 		PlaySoundOnce(ID_FLASH_ON);
-		fprintf(stderr, "[FPV] Llanterna: inici seqüència ON (9->7)\n");
 	}
 	else {
-		// Estava ON → volem apagar: 8 → OFF
 		g_FlashAnimState = FlashlightAnimState::TURNING_OFF;
-		StartHandAnimation(8);   // Animation8 - Linterna apagar
+		StartHandAnimation(8); // apagar
 		PlaySoundOnce(ID_FLASH_OFF);
-		fprintf(stderr, "[FPV] Llanterna: inici seqüència OFF (8)\n");
 	}
 }
+
 
 
 void FPV_UpdateMovement(GLFWwindow* window, float dt)
@@ -3215,6 +4127,9 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 	if (g_InventariObert) return;
 	if (g_MapaPalanquesObrit) return;
 	if (cofre_on) return;
+	if (cofre_final_on)return;
+	if (g_EndgameActive) return;
+
 
 	bool handBlocking = false;
 	if (g_HandPlaying && (g_CurrentHandAnim == 12 || g_CurrentHandAnim == 14))
@@ -3222,8 +4137,11 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 		handBlocking = true;
 	}
 
+	if (g_CurrentFadeState != FADE_IDLE)
+		handBlocking = true;
+
 	// Si hi ha alguna cosa que ha de bloquejar el moviment, sortim
-	if (g_InventariObert || g_MapaPalanquesObrit || cofre_on || handBlocking)
+	if (g_InventariObert || g_MapaPalanquesObrit || cofre_on || handBlocking || cofre_final_on)
 		return;
 
 	// ── Direcció de mirada base (calculada a UpdateCamera) ──────────────────
@@ -3329,6 +4247,8 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 	}
 
 	// ── Pasos (tu sistema complet) ─────────────────────────────────────────
+
+
 	{
 		bool movingXZ = (glm::dot(moveDir, moveDir) > 0.0f);
 		static float stepCooldown = 0.0f;
@@ -3338,7 +4258,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 			if (movingXZ && g_Grounded)
 			{
 				PlaySoundOnce(ID_STEPS);
-				fprintf(stderr, "caminando");
+				//fprintf(stderr, "caminando");
 
 				float pasoRitmo = g_IsSprinting ? 0.35f : 0.55f;
 				stepCooldown = pasoRitmo;
@@ -3346,6 +4266,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 		}
 		else stepCooldown -= dt;
 	}
+
 
 	// ── Head-Bobbing ────────────────────────────────────────────────────────
 	{
@@ -3487,6 +4408,13 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::BAIXA_A_MITJA;
 				}
 
+				// BARCA ESCAPE
+				else if (dinsZona3D(g_FPVPos, glm::vec3(-11.69f, 8.30f, -0.12f), 0.9f, halfH))
+				{
+					g_InteraccioDisponible = true;
+					g_InteraccioContext = TipusInteraccioContext::ESCAPAR_BARCA;
+				}
+
 				else if (dinsZona3D(g_FPVPos, g_PosZonaMitjaABaixa, g_RadiZonaMitjaABaixa, halfH))
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::MITJA_A_BAIXA;
@@ -3512,27 +4440,30 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::TIMO_A_SUPERIOR;
 				}
 
-				else if (dinsZona3D(g_FPVPos, g_PosZonaCofre, g_RadiZonaCofre, halfH))
+				if (dinsZona3D(g_FPVPos, g_PosZonaCofre, g_RadiZonaCofre, halfH))
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::COFRE_CODI;
 				}
-
-				if (joc_quadres_finalitzat && !portes_obertes[3]) //pattata
+				if (dinsZona3D(g_FPVPos, g_PosZonaCofreFinal, g_RadiZonaCofre, halfH))
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::COFRE_FINAL;
+				}
+				if (!portes_obertes[3]) //pattata
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaMitjaCapAbaix, g_RadiPortaMitjaCapAbaix, halfH))
 					{
 						g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PORTA_CAPABAIX;
 					}
 				}
-
-				if (joc_quadres_finalitzat && !portes_obertes[2]) //pattata
+				if (!portes_obertes[2]) //pattata
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaMitjaCapAdalt, g_RadiPortaMitjaCapAdalt, halfH))
 					{
 						g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PORTA_CAPADALT;
 					}
 				}
-				if (joc_quadres_finalitzat && !portes_obertes[1]) //pattata
+
+				if (!portes_obertes[1]) //pattata
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaSuperiorEntrada, g_RadiPortaSuperiorEntrada, halfH))
 					{
@@ -3540,12 +4471,52 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 					}
 				}
 
-				if (joc_quadres_finalitzat && !portes_obertes[0]) //pattata
+				if (!portes_obertes[0]) //pattata
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaSuperiorSortida, g_RadiPortaSuperiorSortida, halfH))
 					{
 						g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PORTA_SUPERIOR_SURT;
 					}
+				}
+
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_1, g_RadiPalancas, halfH)) // PALANCAZZZ  falten les 7 demes, nomes canvia TipusIteraccioContext, i el g_PosPorta i g_posRadio
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_1;
+				}
+
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_2, g_RadiPalancas, halfH))
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_2;
+				}
+
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_3, g_RadiPalancas, halfH))
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_3;
+				}
+
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_4, g_RadiPalancas, halfH))
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_4;
+				}
+
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_5, g_RadiPalancas, halfH))
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_5;
+				}
+
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_6, g_RadiPalancas, halfH))
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_6;
+				}
+
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_7, g_RadiPalancas, halfH)) // PALANCAZZZ  falten les 7 demes, nomes canvia TipusIteraccioContext, i el g_PosPorta i g_posRadio
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_7;
+				}
+
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_8, g_RadiPalancas, halfH)) // PALANCAZZZ  falten les 7 demes, nomes canvia TipusIteraccioContext, i el g_PosPorta i g_posRadio
+				{
+					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_8;
 				}
 			}
 		}
@@ -3573,8 +4544,10 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 			}
 			else g_MapaPalanquesInteractuable = false;
 		}
-		else if (!g_MapaPalanquesObrit)
+		else
+		{
 			g_MapaPalanquesInteractuable = false;
+		}
 	}
 }
 
@@ -3620,7 +4593,7 @@ void CreateHabitacioVAO(float halfX, float halfZ, float height)
 		{ x0,y0,z1,  0, 0,-1 }, { x0,y1,z1,  0, 0,-1 }, { x1,y1,z1,  0, 0,-1 }, { x1,y0,z1,  0, 0,-1 },
 
 		// ══ PARET -Z (NORMAL +Z)
-		{ x1,y0,z0,  0, 0, 1 }, { x1,y1,z0,  0, 0, 1 }, { x0,y1,z0,  0, 0, 1 }, { x0,y0,z0,  0, 0, 1 },
+		{ x1,y0,z0,  0, 0, 1 }, { x1,y1,z0,  0, 0, 1 }, { x0,y1,z0,  0, 0, 1 }, { x0,y0,z0,  0, 0, 1 }
 	};
 
 	// Índexs: sempre 6 cares (36 índexs)
@@ -3797,14 +4770,22 @@ void dibuixa_Solo_Objeto()
 //        2.2) Màscara en blanc de l’objecte amb test Z
 //        3) Composició del quad del FBO sobre backbuffer (alpha blend)
 // ────────────────────────────────────────────────────────────────────────────
-void OnPaint(GLFWwindow* window)
+void OnPaint(GLFWwindow* window, float dt)
 {
+
+	if (IsEndgameBlack()) {
+		glClearColor(0, 0, 0, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		dibuixa_Mano(); // si quieres que aún se vea la última mano (si no, quítalo)
+		return;
+	}
+
 	const bool useSobel = g_SobelOn;
 
 	// 1. Tiempo y Delta Time
-	const double now = glfwGetTime();
-	const float  dt = float(now - g_TimePrev);
-	g_TimePrev = now;
+	//const double now = glfwGetTime();
+	//const float  dt = float(now - g_TimePrev);
+	//g_TimePrev = now;
 
 	// 2. Inputs y Lógica Global
 	UpdateGamepad(dt);
@@ -3888,9 +4869,19 @@ void OnPaint(GLFWwindow* window)
 
 		// Si estamos en FPV, sobreescribimos la lógica
 		if (g_FPV) {
-			FPV_UpdateCamera(window, dt);
-			FPV_UpdateMovement(window, dt);
-			FPV_ApplyView(); // Esto calcula y envía la ViewMatrix interna
+
+			if (g_EndgameActive) {
+				UpdateEndgameCutscene(dt);   // controla yaw/pitch y anims
+				FPV_ApplyView();
+			}
+			else {
+				FPV_UpdateCamera(window, dt);
+				FPV_UpdateMovement(window, dt);
+				FPV_ApplyView();
+				ActualitzaSobelHighlight();
+			}
+
+
 
 			// Actualizar hitboxes
 			for (auto& p : g_Props) p.hitbox = GetAABBFromModelMatrix(p.M);
@@ -3951,75 +4942,149 @@ void OnPaint(GLFWwindow* window)
 	// 7. EFECTO SOBEL (Post-Proceso)
 	// ------------------------------------------------------------------------
 	// NOTA: Desactivamos Sobel si estamos inspeccionando para evitar conflictos visuales simples
+	// ------------------------------------------------------------------------
+// 7. EFECTO SOBEL (Post-Proceso)  -> 2 PASADAS: negro (todo) + amarillo (solo target)
+// ------------------------------------------------------------------------
 	if (useSobel && !g_Inspecciona)
 	{
-		// --- FASE 1: DIBUJAR AL FBO ---
-		glBindFramebuffer(GL_FRAMEBUFFER, g_SobelFBO);
-		glViewport(0, 0, g_FBOW, g_FBOH); // <--- Aquí cambiamos a resolución pequeña
-		glEnable(GL_DEPTH_TEST);
-		glClearColor(0, 0, 0, 1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// Recalcular Proyección para el tamaño del FBO (g_FBOW, g_FBOH)
+		// =========================================================
+		// 0) DEPTH PREPASS (SIN BLIT): rellenamos depth del SobelFBO
+		// =========================================================
+		glBindFramebuffer(GL_FRAMEBUFFER, g_SobelFBO);
+		glViewport(0, 0, g_FBOW, g_FBOH);
+
+		glEnable(GL_DEPTH_TEST);
+		glDisable(GL_BLEND);
+		glDepthMask(GL_TRUE);
+		glDepthFunc(GL_LESS);
+
+		// Limpiamos SOLO depth (no hace falta tocar color aquí)
+		glClear(GL_DEPTH_BUFFER_BIT);
+
+		// Matrices correctas para el tamaño del FBO (IMPORTANTE)
 		if (projeccio == PERSPECT || g_FPV) {
 			ProjectionMatrix = Projeccio_Perspectiva(shader_programID, 0, 0, g_FBOW, g_FBOH, OPV.R);
-			if (g_FPV) FPV_ApplyView();
-			// Si no es FPV, la ViewMatrix ya está calculada del paso anterior, la reutilizamos.
-			// Pero si es PERSPECT normal, hay que asegurar que la ViewMatrix se envíe con la nueva Proyección
-			else {
-				// Reenviar matrices al shader porque ProjectionMatrix cambió
-				glUseProgram(shader_programID);
-				glUniformMatrix4fv(glGetUniformLocation(shader_programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
-				glUniformMatrix4fv(glGetUniformLocation(shader_programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(ViewMatrix));
-			}
+		}
+		else if (projeccio == ORTO) {
+			ProjectionMatrix = Projeccio_Orto();
 		}
 
-		// 1. Dibuja Fondo (Depth Only)
-		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-		glDepthMask(GL_TRUE);
+		if (g_FPV) FPV_ApplyView();
 
 		glUseProgram(shader_programID);
-		const glm::mat4 M(1.0f); // Identidad para la habitación
-		glUniformMatrix4fv(glGetUniformLocation(shader_programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(M));
+		glUniformMatrix4fv(glGetUniformLocation(shader_programID, "projectionMatrix"), 1, GL_FALSE, glm::value_ptr(ProjectionMatrix));
+		glUniformMatrix4fv(glGetUniformLocation(shader_programID, "viewMatrix"), 1, GL_FALSE, glm::value_ptr(ViewMatrix));
 
-		// Desactiva CULL FACE temporalmente para dibujar paredes interiores
-		GLboolean cullWas = glIsEnabled(GL_CULL_FACE);
-		glDisable(GL_CULL_FACE);
-		if (g_ShowRoom) { dibuixa_Habitacio(); DrawProps(shader_programID); }
-		if (cullWas) glEnable(GL_CULL_FACE);
-
-		// 2. Dibuja Máscara Objeto (Color Blanco)
-		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+		// En el prepass queremos algo barato: usamos uSobelMaskPass = TRUE
 		glUniform1i(glGetUniformLocation(shader_programID, "uSobelMaskPass"), GL_TRUE);
+
+		// Depth-only: no escribimos color
+		glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+		// 0.a) Room + props como oclusores reales (depth)
+		if (g_ShowRoom)
+		{
+			const glm::mat4 M(1.0f);
+			const glm::mat4 MV = ViewMatrix * M;
+			const glm::mat4 NM = glm::transpose(glm::inverse(MV));
+
+			glUniformMatrix4fv(glGetUniformLocation(shader_programID, "modelMatrix"), 1, GL_FALSE, glm::value_ptr(M));
+			glUniformMatrix4fv(glGetUniformLocation(shader_programID, "normalMatrix"), 1, GL_FALSE, glm::value_ptr(NM));
+
+			GLboolean cullWas = glIsEnabled(GL_CULL_FACE);
+			glDisable(GL_CULL_FACE);
+			dibuixa_Habitacio();
+			if (cullWas) glEnable(GL_CULL_FACE);
+
+			DrawProps(shader_programID);
+		}
+
+		// 0.b) Objetos del escenario como oclusores (depth)
+		// g_SobelMaskPass=true para que dibuixa_Escena NO meta skybox/agua/etc
+		g_SobelOnlyName.clear();
 		g_SobelMaskPass = true;
-
-		configura_Escena(); // Recupera configuración del objeto
-		dibuixa_Escena();   // Dibuja objeto
-
+		configura_Escena();
+		dibuixa_Escena();
 		g_SobelMaskPass = false;
 		glUniform1i(glGetUniformLocation(shader_programID, "uSobelMaskPass"), GL_FALSE);
 
-		// --- FASE 2: PINTAR EL QUAD EN PANTALLA ---
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, w, h); // <--- IMPORTANTE: Restaurar a pantalla completa
-		glDisable(GL_DEPTH_TEST);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		// Restauramos color writes
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-		glUseProgram(g_SobelProg);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, g_SobelColor);
-		glUniform1i(glGetUniformLocation(g_SobelProg, "uScene"), 0);
-		glUniform1f(glGetUniformLocation(g_SobelProg, "uStrength"), 2.0f);
+		// =========================================================
+		// 1) LAMBDA: pinta máscara al color del FBO usando ese DEPTH
+		// =========================================================
+		auto RenderSobelOverlay = [&](const std::string& onlyName, float edgeR, float edgeG, float edgeB)
+			{
+				// --- FASE 1: máscara al color del FBO (depth ya está hecho) ---
+				glBindFramebuffer(GL_FRAMEBUFFER, g_SobelFBO);
+				glViewport(0, 0, g_FBOW, g_FBOH);
 
-		glBindVertexArray(g_QuadVAO);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
+				glEnable(GL_DEPTH_TEST);
+				glDisable(GL_BLEND);
+				glDepthFunc(GL_LEQUAL);
 
+				// limpiamos SOLO color, NO depth
+				glClearColor(0, 0, 0, 0);
+				glClear(GL_COLOR_BUFFER_BIT);
+
+				// no escribimos depth en la máscara
+				glDepthMask(GL_FALSE);
+
+				glUseProgram(shader_programID);
+				glUniform1i(glGetUniformLocation(shader_programID, "uSobelMaskPass"), GL_TRUE);
+
+				g_SobelMaskPass = true;
+				g_SobelOnlyName = onlyName; // "" = todos, "barca_huida.obj" = solo barca
+
+				configura_Escena();
+				dibuixa_Escena();
+
+				g_SobelOnlyName.clear();
+				g_SobelMaskPass = false;
+
+				// restaurar depth writes por si acaso
+				glDepthMask(GL_TRUE);
+
+				// --- FASE 2: pintar quad en pantalla ---
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				glViewport(0, 0, w, h);
+
+				glDisable(GL_DEPTH_TEST);
+				glEnable(GL_BLEND);
+				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+				glUseProgram(g_SobelProg);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, g_SobelColor);
+				glUniform1i(glGetUniformLocation(g_SobelProg, "uScene"), 0);
+				glUniform1f(glGetUniformLocation(g_SobelProg, "uStrength"), 2.0f);
+				glUniform3f(glGetUniformLocation(g_SobelProg, "uEdgeColor"), edgeR, edgeG, edgeB);
+
+				glBindVertexArray(g_QuadVAO);
+				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+				glBindVertexArray(0);
+
+				glUseProgram(0);
+				glDisable(GL_BLEND);
+				glEnable(GL_DEPTH_TEST);
+				glDepthFunc(GL_LESS);
+				glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			};
+
+
+		RenderSobelOverlay("", 0.0f, 0.0f, 0.0f); // negro para todo
+
+		if (!g_SobelNomHighlight.empty())
+			RenderSobelOverlay(g_SobelNomHighlight, 1.0f, 1.0f, 0.0f); // amarillo solo ese
+
+		// dejar el shader “normal”
+		glUseProgram(shader_programID);
+		glUniform1i(glGetUniformLocation(shader_programID, "uSobelMaskPass"), GL_FALSE);
 		glUseProgram(0);
-		glDisable(GL_BLEND);
-		glEnable(GL_DEPTH_TEST);
 	}
+
 
 	// 8. HUD FINAL
 	dibuixa_Mano();
@@ -4033,6 +5098,47 @@ void configura_Escena()
 {
 	GTMatrix = instancia(transf, TG, TGF);
 }
+
+std::vector<bool> solucioPalanques = { true, false, true, true, false, true, false, false }; //PALANCAZZZ
+std::vector<bool> actualPalanques = { true, true, true, true, true, true, true, true };  // True palanca arriba, False palanca abajo
+
+bool g_CofreItemAfegitPalanques = false;  // PALANCAZZZ no hace falta tocar nada de aqui
+void DibuixaJocPalanques()// PALANCAZZZ
+{
+	ImGuiIO& io = ImGui::GetIO();
+	if (joc_palanques_finalitzat && g_ShowReward)
+	{
+		double now = glfwGetTime();
+		if (now - g_RewardStartTimePal < g_RewardDurationPal) {
+			claimRewards(io, 2);
+		}
+		else
+			g_ShowReward = false;
+	}
+	if (joc_palanques_finalitzat && !g_CofreItemAfegitPalanques)
+	{
+		AfegirItemInventari("clau_palanques", "Clau luxosa",
+			"Una clau ornamentada que has guanyat al minijoc de les palanques.");
+
+		for (COBJModel* obj : vObOBJ)
+		{
+			if (obj->getName() == "cofre_cerrado.obj") obj->changeRendering(false);
+			if (obj->getName() == "cofre.obj") obj->changeRendering(true);
+		}
+
+		StartHandAnimation(1);
+		g_CofreItemAfegitPalanques = true;
+		g_ShowReward = true;
+		g_RewardStartTimePal = glfwGetTime();
+	}
+
+
+	if (actualPalanques == solucioPalanques)
+	{
+		joc_palanques_finalitzat = true;
+	}
+}
+
 
 // dibuixa_Escena: Funció que crida al dibuix dels diferents elements de l'escena
 void dibuixa_Escena()
@@ -4139,7 +5245,8 @@ void dibuixa_Escena()
 		DibuixaAigua();
 	}
 
-	DibuixaMatapatos(shader_programID);
+	if (!(g_SobelMaskPass && !g_SobelOnlyName.empty()))
+		DibuixaMatapatos(shader_programID);
 
 	dibuixa_EscenaGL(
 		shader_programID,
@@ -4413,13 +5520,14 @@ void DibuixaHUDCofre()
 			if (obj->getName() == "cofre_arriba_abierto.obj") obj->changeRendering(true);
 		}
 
+		StartHandAnimation(1);
 		g_CofreItemAfegit = true;
 		idx_clue = 2;
 
 		g_ShowReward = true;
 		g_RewardStartTime = glfwGetTime(); // temps actual
 	}
-	if (g_ShowReward)
+	if (g_ShowReward && joc_quadres_finalitzat)
 	{
 		double elapsed = glfwGetTime() - g_RewardStartTime;
 		if (elapsed < g_RewardDuration)
@@ -4432,6 +5540,73 @@ void DibuixaHUDCofre()
 	}
 }
 
+bool g_CofreItemFinalAfegit = false;
+void DibuixaHUDCofreFinal()
+{
+
+	ImGuiIO& io = ImGui::GetIO();
+	if (joc_simbolsFinal_finalitzat && g_ShowReward)
+	{
+		double now = glfwGetTime();
+		if (now - g_RewardStartTimeFinal < g_RewardDurationFinal) {
+			claimRewards(io, 3);
+		}
+		else
+			g_ShowReward = false;
+	}
+
+	if (cofre_final_on)
+		renderCofreFinal(window);
+
+	if (joc_simbolsFinal_finalitzat && !g_CofreItemFinalAfegit)
+	{
+		AfegirItemInventari("clau_mestre.png", "Clau mestre",
+			"Una clau robusta que has guanyat al minijoc dels objectes i numeros.");
+
+		for (COBJModel* obj : vObOBJ)
+		{
+			if (obj->getName() == "cofre_final_cerrado.obj") obj->changeRendering(false);
+			if (obj->getName() == "cofre_final_abierto.obj") obj->changeRendering(true);
+		}
+
+		StartHandAnimation(1);
+		g_CofreItemFinalAfegit = true;
+		g_ShowReward = true;
+		g_RewardStartTimeFinal = glfwGetTime(); // temps actual
+	}
+
+}
+
+// Función auxiliar para pintar el negro con ImGui
+// Ponla antes del draw_scene o en tus headers
+void DibuixaOverlayFade(float alpha)
+{
+	if (alpha <= 0.001f) return; // Optimización
+
+	ImGuiIO& io = ImGui::GetIO();
+
+	// Configurar ventana invisible que ocupa todo
+	ImGui::SetNextWindowPos(ImVec2(0, 0));
+	ImGui::SetNextWindowSize(io.DisplaySize);
+	ImGui::SetNextWindowBgAlpha(0.0f);
+
+	ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoDecoration |
+		ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+	if (ImGui::Begin("FadeOverlay", nullptr, flags))
+	{
+		// Rectángulo negro con el alpha actual
+		ImGui::GetWindowDrawList()->AddRectFilled(
+			ImVec2(0, 0), io.DisplaySize,
+			IM_COL32(0, 0, 0, (int)(alpha * 255))
+		);
+		ImGui::End();
+	}
+}
+
+
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*                              MENÚS ImGui                                  */
@@ -4441,11 +5616,12 @@ void draw_scene()
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 
-	g_UsePadMouse = (cofre_on || g_MapaPalanquesObrit || g_InventariObert);
+	// 2. Lógica de control (Mouse/Pad)
+	g_UsePadMouse = (cofre_on || g_MapaPalanquesObrit || g_InventariObert || cofre_final_on);
 
 	ImGuiIO& io = ImGui::GetIO();
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; 
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
 	if (g_UsePadMouse)
 	{
@@ -4458,17 +5634,30 @@ void draw_scene()
 	DibuixaCrosshair();
 	DibuixaHUDMatapatos();
 	DibuixaInventari();
-	DibuixaHUDInteraccioContextual();
+
 
 	// SOLO HUDs ImGui:
 	DibuixaHUDMapaPalanques();
 	DibuixaMapaPalanquesOverlay();
 
-	renderCronometre(window);
-	renderInstruccions(window);
-	renderCandelabre(window, g_HeadlightEnabled);
+	// 👇 HUD “capado” durante endgame
+	const bool showHUD_Gameplay = !g_EndgameActive;  // true = se dibuja, false = se oculta
 
 
+	if (showHUD_Gameplay) {
+		renderCronometre(window);
+		renderCandelabre(window, g_HeadlightEnabled);
+		DibuixaHUDInteraccioContextual();
+
+	}
+
+
+	DibuixaOverlayFade(g_FadeAlpha);
+	DibuixaJocPalanques();
+
+	DibuixaHUDCofreFinal();
+
+	// 4. Renderizar final
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
@@ -7260,6 +8449,144 @@ void OnShaderPBinaryRead()
 /*                            FI MENUS ImGui                                 */
 /* ------------------------------------------------------------------------- */
 
+// --- FUNCIÓN REAL DE TELETRANSPORTE ---
+// Esta función se ejecutará SOLO cuando la pantalla esté totalmente negra
+void PerformTeleportLogic(TipusInteraccioContext teleportID)
+{
+	// Aquí movemos las coordenadas mientras la pantalla está negra
+	switch (teleportID)
+	{
+	case TipusInteraccioContext::BAIXA_A_MITJA:
+		TeleportaJugador(g_DestZonaBaixaAMitja, 0.0f, -10.52f);
+		break;
+
+	case TipusInteraccioContext::MITJA_A_BAIXA:
+		TeleportaJugador(g_DestZonaMitjaABaixa, 0.0f, 8.08f);
+		break;
+
+	case TipusInteraccioContext::MITJA_A_SUPERIOR:
+		TeleportaJugador(g_DestZonaMitjaASuperior, 180.0f, -3.44f);
+		break;
+
+	case TipusInteraccioContext::SUPERIOR_A_MITJA:
+		TeleportaJugador(g_DestZonaSuperiorAMitja, 180.0f, -1.52f);
+		break;
+
+	case TipusInteraccioContext::SUPERIOR_A_TIMO:
+		TeleportaJugador(g_DestZonaSuperiorATimo, -242.04f, -1.88f);
+		break;
+
+	case TipusInteraccioContext::TIMO_A_SUPERIOR:
+		TeleportaJugador(g_DestZonaTimoASuperior, 0.0f, -3.92f);
+		break;
+	case TipusInteraccioContext::ESCAPAR_BARCA:
+
+		// 1. Coordenadas inventadas (X, Y, Z)
+		// 2. Yaw (rotación horizontal)
+		// 3. Pitch (rotación vertical)
+		//TeleportaJugador(glm::vec3(10.0f, 5.0f, 10.0f), 90.0f, 0.0f); //chokolate
+
+		/* static glm::vec3 g_EndPos = glm::vec3(300.76f, 1.70f, 151.07f);
+		static float     g_EndYaw = -509.40f;
+		static float     g_EndPitch = -4.76f;*/
+
+		// Opcional: Si quieres cambiar de "Planta" lógica para temas de techo/suelo
+		// g_PlantaActual = PlantaBarco::SUPERIOR; 
+		break;
+
+	default:
+		fprintf(stderr, "[FADE SYSTEM] Error: ID desconocido %d\n", teleportID);
+		return;
+	}
+
+	// Actualizaciones comunes tras mover al jugador
+	g_RoomYMax = g_RoomYMin + g_RoomHeight;
+	g_VelY = 0.0f;
+	g_Grounded = true;
+	fprintf(stderr, "[FADE SYSTEM] Teletransporte realizado (ID: %d)\n", teleportID);
+}
+
+// 1. LLAMA A ESTA FUNCIÓN para iniciar el cambio de planta
+void StartTeleportSequence(TipusInteraccioContext interactionID)
+{
+	if (g_CurrentFadeState != FADE_IDLE) return; // Evitar spam
+
+	g_TeleportTargetID = interactionID;
+	g_CurrentFadeState = FADE_OUT;
+	PlaySoundOnce(ID_STAIRS);
+	// Iniciar oscurecimiento
+	// Nota: g_FadeAlpha empieza en 0.0f (o donde esté) y subirá
+}
+// 2. PON ESTA FUNCIÓN EN TU "UPDATE" O "GAME LOOP" (se debe llamar cada frame)
+// dt = delta time (tiempo transcurrido entre frames, ej: 0.016 para 60fps)
+// Llama a esto cada frame pasándole el Delta Time (dt)
+float g_IntroDelayTimer = 0.0f;
+
+void UpdateFadeSystem(float dt)
+{
+	if (g_CurrentFadeState == FADE_IDLE) return;
+
+	//PlaySoundOnce(ID_STAIRS);
+	// --- FASE 1: YENDO A NEGRO ---
+	if (g_CurrentFadeState == FADE_OUT)
+	{
+		g_FadeAlpha += g_FadeSpeed * dt;
+		if (g_FadeAlpha >= 1.0f)
+		{
+			g_FadeAlpha = 1.0f;
+			if (g_EndgameActive)
+			{
+				TeleportaJugador(g_EndPos, g_EndYaw, g_EndPitch);
+			}
+			if (g_TeleportTargetID != TipusInteraccioContext::NONE) {
+				PerformTeleportLogic(g_TeleportTargetID);
+				g_TeleportTargetID = TipusInteraccioContext::NONE;
+			}
+			g_CurrentFadeState = FADE_IN;
+		}
+	}
+	// --- FASE 2: ACLARANDO (Intro / Fin TP) ---
+	else if (g_CurrentFadeState == FADE_IN)
+	{
+		// ============================================================
+		// BLOQUE 1: AL PRINCIPIO DEL FADE
+		// (Esto se ejecuta en el primer frame, cuando Alpha es 1.0 o 0.99)
+		// ============================================================
+		if (!g_IntroSoundPlayed)
+		{
+			PlaySoundOnce(ID_WAKING); // <--- SONIDO AQUÍ
+			g_IntroSoundPlayed = true;
+		}
+
+		// ============================================================
+		// BLOQUE 2: PROCESO (REDUCIR OPACIDAD)
+		// ============================================================
+		g_FadeAlpha -= g_FadeSpeed * dt;
+
+		// ============================================================
+		// BLOQUE 3: AL FINAL DEL FADE
+		// (Esto solo se ejecuta cuando la pantalla ya es totalmente visible)
+		// ============================================================
+		if (g_FadeAlpha <= 0.0f)
+		{
+			g_FadeAlpha = 0.0f;
+
+			// Aquí lanzamos la animación visual
+			if (!g_IntroHandsPlayed)
+			{
+				StartHandAnimation(14); // <--- ANIMACIÓN AQUÍ
+				g_IntroHandsPlayed = true;
+				g_CurrentFadeState = FADE_IDLE;
+			}
+			else
+			{
+				g_CurrentFadeState = FADE_IDLE;
+			}
+		}
+	}
+}
+
+void ToggleMapaPalanquesAmbMans(GLFWwindow* window);
 
 // ─────────────────────────────────────────────────────────────
 // Helper: acció d'interacció (equivalent a tecla E)
@@ -7278,30 +8605,30 @@ void HandleInteract(GLFWwindow* window)
 		fprintf(stderr, "[COFRE] Tancant cofre\n");
 		return;
 	}
+	if (cofre_final_on)
+	{
+		cofre_final_on = false;
+		g_FVP_move = true;
+		FPV_SetMouseCapture(true);
+		fprintf(stderr, "[COFRE] Tancant cofre\n");
+		return;
+	}
 
 	// 1) Si el mapa de palanques està obert → tancar-lo
 	if (g_MapaPalanquesObrit)
 	{
-		g_MapaPalanquesObrit = false;
-		FPV_SetMouseCapture(true);
-		fprintf(stderr, "[MAPA PALANQUES] Tancant mapa\n");
+		ToggleMapaPalanquesAmbMans(window);
 		return;
 	}
+
 
 	// 2) Si el document del terra és interactuable → obrir el mapa
 	if (g_MapaPalanquesInteractuable && !g_MapaPalanquesObrit)
 	{
-		g_MapaPalanquesObrit = true;
-		g_MapaPalanquesVist = true;
-
-		FPV_SetMouseCapture(false);
-		if (window) {
-			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-		}
-
-		fprintf(stderr, "[MAPA PALANQUES] Obrint mapa de palanques\n");
+		ToggleMapaPalanquesAmbMans(window);
 		return;
 	}
+
 
 	// 3) Matapatos: iniciar minijoc
 	if (g_MatapatosInteractuable &&
@@ -7319,70 +8646,46 @@ void HandleInteract(GLFWwindow* window)
 	// 4) Interaccions contextuals (escales / timó / barca / cofre)
 	if (g_InteraccioDisponible)
 	{
+
+		// helper local (no “función nueva” global): alterna render de up/down por nombre
+		auto TogglePalancaModel = [&](const char* upName, const char* downName)
+			{
+				for (COBJModel* obj : vObOBJ)
+				{
+					if (obj->getName() == upName)   obj->changeRendering(!obj->isRendering());
+					if (obj->getName() == downName) obj->changeRendering(!obj->isRendering());
+				}
+				PlaySoundOnce(ID_LEVER);
+			};
+
 		switch (g_InteraccioContext)
 		{
 		case TipusInteraccioContext::BAIXA_A_MITJA:
-			g_FPVPos = g_DestZonaBaixaAMitja;
-			g_RoomYMin = g_DestZonaBaixaAMitja.y - g_PlayerEye;
-			g_RoomYMax = g_RoomYMin + g_RoomHeight;
-			g_VelY = 0.0f;
-			g_Grounded = true;
-			fprintf(stderr, "[TP] Baixa -> Mitja  pos=(%.2f, %.2f, %.2f)  Ymin=%.2f\n",
-				g_FPVPos.x, g_FPVPos.y, g_FPVPos.z, g_RoomYMin);
+			StartTeleportSequence(TipusInteraccioContext::BAIXA_A_MITJA);
 			break;
 
 		case TipusInteraccioContext::MITJA_A_BAIXA:
-			g_FPVPos = g_DestZonaMitjaABaixa;
-			g_RoomYMin = g_DestZonaMitjaABaixa.y - g_PlayerEye;
-			g_RoomYMax = g_RoomYMin + g_RoomHeight;
-			g_VelY = 0.0f;
-			g_Grounded = true;
-			fprintf(stderr, "[TP] Mitja -> Baixa  pos=(%.2f, %.2f, %.2f)  Ymin=%.2f\n",
-				g_FPVPos.x, g_FPVPos.y, g_FPVPos.z, g_RoomYMin);
+			StartTeleportSequence(TipusInteraccioContext::MITJA_A_BAIXA);
 			break;
 
 		case TipusInteraccioContext::MITJA_A_SUPERIOR:
-			g_FPVPos = g_DestZonaMitjaASuperior;
-			g_RoomYMin = g_DestZonaMitjaASuperior.y - g_PlayerEye;
-			g_RoomYMax = g_RoomYMin + g_RoomHeight;
-			g_VelY = 0.0f;
-			g_Grounded = true;
-			fprintf(stderr, "[TP] Mitja -> Superior  pos=(%.2f, %.2f, %.2f)  Ymin=%.2f\n",
-				g_FPVPos.x, g_FPVPos.y, g_FPVPos.z, g_RoomYMin);
+			StartTeleportSequence(TipusInteraccioContext::MITJA_A_SUPERIOR);
 			break;
 
 		case TipusInteraccioContext::SUPERIOR_A_MITJA:
-			g_FPVPos = g_DestZonaSuperiorAMitja;
-			g_RoomYMin = g_DestZonaSuperiorAMitja.y - g_PlayerEye;
-			g_RoomYMax = g_RoomYMin + g_RoomHeight;
-			g_VelY = 0.0f;
-			g_Grounded = true;
-			fprintf(stderr, "[TP] Superior -> Mitja  pos=(%.2f, %.2f, %.2f)  Ymin=%.2f\n",
-				g_FPVPos.x, g_FPVPos.y, g_FPVPos.z, g_RoomYMin);
+			StartTeleportSequence(TipusInteraccioContext::SUPERIOR_A_MITJA);
 			break;
 
 		case TipusInteraccioContext::SUPERIOR_A_TIMO:
-			g_FPVPos = g_DestZonaSuperiorATimo;
-			g_RoomYMin = g_DestZonaSuperiorATimo.y - g_PlayerEye;
-			g_RoomYMax = g_RoomYMin + g_RoomHeight;
-			g_VelY = 0.0f;
-			g_Grounded = true;
-			fprintf(stderr, "[TP] Superior -> Timó  pos=(%.2f, %.2f, %.2f)  Ymin=%.2f\n",
-				g_FPVPos.x, g_FPVPos.y, g_FPVPos.z, g_RoomYMin);
+			StartTeleportSequence(TipusInteraccioContext::SUPERIOR_A_TIMO);
 			break;
 
 		case TipusInteraccioContext::TIMO_A_SUPERIOR:
-			g_FPVPos = g_DestZonaTimoASuperior;
-			g_RoomYMin = g_DestZonaTimoASuperior.y - g_PlayerEye;
-			g_RoomYMax = g_RoomYMin + g_RoomHeight;
-			g_VelY = 0.0f;
-			g_Grounded = true;
-			fprintf(stderr, "[TP] Timó -> Superior  pos=(%.2f, %.2f, %.2f)  Ymin=%.2f\n",
-				g_FPVPos.x, g_FPVPos.y, g_FPVPos.z, g_RoomYMin);
+			StartTeleportSequence(TipusInteraccioContext::TIMO_A_SUPERIOR);
 			break;
 
 		case TipusInteraccioContext::COFRE_CODI:
-			// Obrir HUD del cofre (només si encara no està resolt)
+			// (el que ja tens per obrir el HUD del cofre)
 			if (!joc_quadres_finalitzat)
 			{
 				cofre_on = true;
@@ -7395,57 +8698,151 @@ void HandleInteract(GLFWwindow* window)
 			}
 			break;
 
-		case TipusInteraccioContext::ESCAPAR_BARCA:
-			fprintf(stderr, "[ESCAPE] Has pujat a la barca i has escapat del vaixell!\n");
-			// Aquí podries canviar act_state a una escena final, etc.
+		case TipusInteraccioContext::COFRE_FINAL:
+			// Obrir HUD del cofre (només si encara no està resolt)
+			if (!joc_simbolsFinal_finalitzat)
+			{
+				cofre_final_on = true;
+				g_FVP_move = false;
+				FPV_SetMouseCapture(false);
+				if (window) {
+					glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+				}
+			}
 			break;
+		case TipusInteraccioContext::ESCAPAR_BARCA:
+		{
+			// No repetir / no mezclar con endgame
+			if (g_EndgameActive) return;
+			if (g_HandPlaying)   return;
+
+			// 1) Arranca SOLO celebración (SIN TP)
+			if (!g_PendingEndgameFromBoat)
+			{
+				g_PendingEndgameFromBoat = true;
+
+				// bloquear jugador mientras celebra
+				g_FVP_move = false;
+				FPV_SetMouseCapture(false);
+
+				// limpiar colas por si acaso
+				BuidaCuaAnimMans();
+				g_QueuedHandAnim = -1;
+
+				StartHandAnimation(4); // celebrar
+				fprintf(stderr, "[ESCAPE] Start celebrate (4), NO TP yet\n");
+			}
+			return;
+		}
+
 		case TipusInteraccioContext::PORTA_CAPABAIX:
 		{
-			portes_obertes[3] = true;
-			for (COBJModel* obj : vObOBJ)
+			if (joc_quadres_finalitzat)
 			{
-				if (obj->getName() == "puerta4.obj") obj->changeRendering(false);
-				if (obj->getName() == "puerta4_open.obj") obj->changeRendering(true);
+				if (g_HandPlaying) break;
+				if (g_PendingDoorOpen != PendingDoorOpen::NONE) break;
+
+				g_PendingDoorOpen = PendingDoorOpen::PUERTA4;
+
+				// opcional pero recomendable para que no se mueva mientras empuja
+				g_FVP_move = false;
+
+				StartHandAnimation(10); // empujar puerta
 			}
-			fprintf(stderr, "[Porta Obertaaa mitja cap a baix]!\n");
 		}
 		break;
+
 
 		case TipusInteraccioContext::PORTA_CAPADALT:
 		{
-			portes_obertes[2] = true;
-			for (COBJModel* obj : vObOBJ)
+			if (joc_palanques_finalitzat)
 			{
-				if (obj->getName() == "puerta1.obj") obj->changeRendering(false);
-				if (obj->getName() == "puerta1_open.obj") obj->changeRendering(true);
-			}
-			fprintf(stderr, "[Porta Obertaaa mitja cap a dalt]!\n");
-		}
-		break;
-		case TipusInteraccioContext::PORTA_SUPERIOR_ENT:
-		{
-			portes_obertes[1] = true;
-			for (COBJModel* obj : vObOBJ)
-			{
-				if (obj->getName() == "puerta3.obj") obj->changeRendering(false);
-				if (obj->getName() == "puerta3_open.obj") obj->changeRendering(true);
+				if (g_HandPlaying) break;
+				if (g_PendingDoorOpen != PendingDoorOpen::NONE) break;
+
+				g_PendingDoorOpen = PendingDoorOpen::PUERTA1;
+				g_FVP_move = false;
+				StartHandAnimation(10);
 			}
 		}
 		break;
 
-		case TipusInteraccioContext::PORTA_SUPERIOR_SURT:
+		case TipusInteraccioContext::PORTA_SUPERIOR_ENT:
 		{
-			portes_obertes[0] = true;
-			for (COBJModel* obj : vObOBJ)
+			if (joc_Matapatos_finalitzat)
 			{
-				if (obj->getName() == "puerta2.obj") obj->changeRendering(false);
-				if (obj->getName() == "puerta2_open.obj") obj->changeRendering(true);
+				if (g_HandPlaying) break;
+				if (g_PendingDoorOpen != PendingDoorOpen::NONE) break;
+
+				g_PendingDoorOpen = PendingDoorOpen::PUERTA3;
+				g_FVP_move = false;
+
+				StartHandAnimation(6); // anim de romper/forzar puerta
+				idx_clue = 4;          // si quieres, lo puedes dejar aquí o moverlo al final
 			}
 		}
 		break;
+
+
+		case TipusInteraccioContext::PORTA_SUPERIOR_SURT:
+		{
+			if (joc_simbolsFinal_finalitzat)
+			{
+				if (g_HandPlaying) break;
+				if (g_PendingDoorOpen != PendingDoorOpen::NONE) break;
+
+				g_PendingDoorOpen = PendingDoorOpen::PUERTA2;
+				g_FVP_move = false;
+				StartHandAnimation(10);
+			}
+		}
+		break;
+
+
+		case TipusInteraccioContext::PALANCA_1:
+			actualPalanques[0] = !actualPalanques[0];
+			TogglePalancaModel("palanca6_white_up.obj", "palanca6_white_down.obj");
+			break;
+
+		case TipusInteraccioContext::PALANCA_2:
+			actualPalanques[1] = !actualPalanques[1];
+			TogglePalancaModel("palanca5_black_up.obj", "palanca5_black_down.obj");
+			break;
+
+		case TipusInteraccioContext::PALANCA_3:
+			actualPalanques[2] = !actualPalanques[2];
+			TogglePalancaModel("palanca1_black_up.obj", "palanca1_black_down.obj");
+			break;
+
+		case TipusInteraccioContext::PALANCA_4:
+			actualPalanques[3] = !actualPalanques[3];
+			TogglePalancaModel("palanca2_white_up.obj", "palanca2_white_down.obj");
+			break;
+
+		case TipusInteraccioContext::PALANCA_5:
+			actualPalanques[4] = !actualPalanques[4];
+			TogglePalancaModel("palanca7_black_up.obj", "palanca7_black_down.obj");
+			break;
+
+		case TipusInteraccioContext::PALANCA_6:
+			actualPalanques[5] = !actualPalanques[5];
+			TogglePalancaModel("palanca8_white_up.obj", "palanca8_white_down.obj");
+			break;
+
+		case TipusInteraccioContext::PALANCA_7:
+			actualPalanques[6] = !actualPalanques[6];
+			TogglePalancaModel("palanca4_black_up.obj", "palanca4_black_down.obj");
+			break;
+
+		case TipusInteraccioContext::PALANCA_8:
+			actualPalanques[7] = !actualPalanques[7];
+			TogglePalancaModel("palanca3_black_up.obj", "palanca3_black_down.obj");
+			break;
+
 		default:
 			break;
 		}
+
 	}
 }
 
@@ -7458,6 +8855,14 @@ void HandleEscapeKey(GLFWwindow* window)
 	if (cofre_on)
 	{
 		cofre_on = false;
+		g_FVP_move = true;
+		FPV_SetMouseCapture(true);
+		fprintf(stderr, "[COFRE] Tancat amb ESC / BACK\n");
+		return;
+	}
+	if (cofre_final_on)
+	{
+		cofre_final_on = false;
 		g_FVP_move = true;
 		FPV_SetMouseCapture(true);
 		fprintf(stderr, "[COFRE] Tancat amb ESC / BACK\n");
@@ -7526,58 +8931,57 @@ void HandleToggleInventory(GLFWwindow* window)
 
 void ToggleMapaPalanquesAmbMans(GLFWwindow* window)
 {
-	// OBRIR quadern de palanques
+	// OBRIR
 	if (!g_MapaPalanquesObrit)
 	{
-		// Si ja hi ha una animació de mans en marxa, millor no fer res
-		if (g_HandPlaying)
-			return;
+		if (g_HandPlaying) return;
 
-		// Primer fem l'animació d'OBRIR quadern...
-		g_PendingMapaOpenAfterAnim = true;   // quan acabi, mostrarem el quadern
+		FPV_SetMouseCapture(false);
+		if (window) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+		g_PendingMapaOpenAfterAnim = true;          // cuando acabe la anim se abre la imagen
 		StartHandAnimation(HAND_ANIM_MAPA_OBRIR);
-
-		// Opcional: pots bloquejar moviment, ratolí, etc. si vols
-		// g_FVP_move = false;
+		PlaySoundOnce(ID_OPEN_BOOK);
+		fprintf(stderr, "[MAPA PALANQUES] Obrint (després anim)\n");
 		return;
 	}
 
-	// TANCAR quadern de palanques
-	else
-	{
-		// 1) Tanquem immediatament la imatge, com fins ara
-		g_MapaPalanquesObrit = false;
+	// TANCAR
+	g_MapaPalanquesObrit = false;
+	FPV_SetMouseCapture(true);
 
-		// 2) I tot seguit fem l'animació de TANCAR quadern
-		if (!g_HandPlaying)
-			StartHandAnimation(HAND_ANIM_MAPA_TANCAR);
+	if (!g_HandPlaying)
+		StartHandAnimation(HAND_ANIM_MAPA_TANCAR);
 
-		// Aquí ja tornes a permetre moviment si tocava
-		// g_FVP_move = true;
-	}
+	//PlaySoundOnce(ID_CLOSE_BOOK); // si tienes
+	fprintf(stderr, "[MAPA PALANQUES] Tancant (amb anim)\n");
 }
 
 
 
 
 
-// ─────────────────────────────────────────────────────────────
-// Helper: accions d'inputs del GAMEPAD (botons tipus E/I/ESC)
-// ─────────────────────────────────────────────────────────────
 void UpdateGamepadActions(GLFWwindow* window)
 {
-	if (!g_Pad.connected)
-		return;
+	if (!g_Pad.connected) return;
 
-	// Només té sentit la majoria de coses en mode joc
 	if (act_state == GameState::GAME)
 	{
 		// X → Interactuar (E)
 		bool xJustPressed = (g_Pad.btnX && !g_PadPrev.btnX);
 		if (xJustPressed)
 		{
+			// ✅ PRIORIDAD ABSOLUTA: si es barca, NO llames HandleInteract
+			if (g_InteraccioDisponible && g_InteraccioContext == TipusInteraccioContext::ESCAPAR_BARCA)
+			{
+				StartEscapeSequence_NoTP();
+				return; // importante: no proceses más acciones este frame
+			}
+
+			// resto de interacciones normales
 			HandleInteract(window);
 		}
+
 
 		// Y → Inventari (I)
 		bool yJustPressed = (g_Pad.btnY && !g_PadPrev.btnY);
@@ -7586,30 +8990,22 @@ void UpdateGamepadActions(GLFWwindow* window)
 			HandleToggleInventory(window);
 		}
 
-		// B → back:
-		//    - Si estem al Matapatos → sortir (com Q)
-		//    - Si no → comportament ESC (tancar cofre/mapa o MENU<->GAME)
+		// B → back
 		bool bJustPressed = (g_Pad.btnB && !g_PadPrev.btnB);
 		if (bJustPressed)
 		{
-			if (g_EstatMatapatos != EstatMatapatos::OFF)
-			{
-				AturaMatapatos();
-			}
-			else
-			{
-				HandleEscapeKey(window);
-			}
+			if (g_EstatMatapatos != EstatMatapatos::OFF) AturaMatapatos();
+			else HandleEscapeKey(window);
 		}
 
-		// START → també MENU <-> GAME (com ESC)
+		// START → MENU <-> GAME
 		bool startJustPressed = (g_Pad.btnStart && !g_PadPrev.btnStart);
 		if (startJustPressed)
 		{
 			HandleEscapeKey(window);
 		}
 
-		// LB → linterna ON/OFF (equivalent a F)
+		// LB → linterna ON/OFF
 		bool lbJustPressed = (g_Pad.btnLB && !g_PadPrev.btnLB);
 		if (lbJustPressed && g_FPV)
 		{
@@ -7618,7 +9014,6 @@ void UpdateGamepadActions(GLFWwindow* window)
 	}
 	else if (act_state == GameState::MENU)
 	{
-		// En el menú, START o B → tornar a GAME (com ESC)
 		bool startJustPressed = (g_Pad.btnStart && !g_PadPrev.btnStart);
 		bool bJustPressed = (g_Pad.btnB && !g_PadPrev.btnB);
 		if (startJustPressed || bJustPressed)
@@ -7639,6 +9034,16 @@ void UpdateGamepadActions(GLFWwindow* window)
 
 void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+
+	// Si estamos en endgame, bloqueamos TODO excepto ESC (skip a negro)
+	if (g_EndgameActive)
+	{
+		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+			g_EndgameState = EndgameState::BLACK;
+		}
+		return;
+	}
+
 	// ─────────────────────────────────────────────────────────────────
 	// Gestió específica quan estem al joc (GameState::GAME)
 	// ─────────────────────────────────────────────────────────────────
@@ -7699,7 +9104,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 
 			if (key == GLFW_KEY_B)
 			{
-				g_RoomYMin = 6.7f;
+				g_RoomYMin = 6.6f;
 				g_RoomYMax = g_RoomYMin + g_RoomHeight;
 
 				g_FPVPos.x = 0.0f;
@@ -7760,6 +9165,15 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 			}
 		}
 
+		// Tecla U: iniciar cutscene final (DEBUG)
+		if (g_FPV && action == GLFW_PRESS && mods == 0 && key == GLFW_KEY_U)
+		{
+			StartEndgameCutscene();
+			fprintf(stderr, "[ENDGAME] Start\n");
+			return;
+		}
+
+
 		// Tecla K: debug posició FPV
 		if (g_FPV && action == GLFW_PRESS && mods == 0 && key == GLFW_KEY_K)
 		{
@@ -7784,6 +9198,15 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				return;
 			}
 
+			if (cofre_final_on)
+			{
+				cofre_final_on = false;
+				g_FVP_move = true;
+				FPV_SetMouseCapture(true);
+				fprintf(stderr, "[COFRE] Tancant cofre\n");
+				return;
+			}
+			// 1) Si el mapa de palanques està obert → tancar-lo
 			// 1) Si el mapa de palanques està obert → tancar-lo
 // 1) Si el mapa de palanques està obert → tancar-lo
 			if (g_MapaPalanquesObrit)
@@ -7797,9 +9220,9 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				if (!g_HandPlaying)
 				{
 					StartHandAnimation(HAND_ANIM_MAPA_TANCAR);
-					PlaySoundOnce(ID_CLOSE_BOOK);
+					//PlaySoundOnce(ID_CLOSE_BOOK);
 				}
-					
+
 
 				return;
 			}
@@ -7926,52 +9349,203 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 					}
 					break;
 
+				case TipusInteraccioContext::COFRE_FINAL:
+					// Obrir HUD del cofre (només si encara no està resolt)
+					if (!joc_simbolsFinal_finalitzat)
+					{
+						cofre_final_on = true;
+						g_FVP_move = false;
+						FPV_SetMouseCapture(false);
+						if (window) {
+							glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+						}
+					}
+					break;
+
 				case TipusInteraccioContext::ESCAPAR_BARCA:
 					fprintf(stderr, "[ESCAPE] Has pujat a la barca i has escapat del vaixell!\n");
 					break;
 				case TipusInteraccioContext::PORTA_CAPABAIX:
 				{
-					portes_obertes[3] = true;
-					for (COBJModel* obj : vObOBJ)
+					if (joc_quadres_finalitzat)
 					{
-						if (obj->getName() == "puerta4.obj") obj->changeRendering(false);
-						if (obj->getName() == "puerta4_open.obj") obj->changeRendering(true);
+						portes_obertes[3] = true;
+						for (COBJModel* obj : vObOBJ)
+						{
+							if (obj->getName() == "puerta4.obj") obj->changeRendering(false);
+							if (obj->getName() == "puerta4_open.obj") obj->changeRendering(true);
+						}
+						for (auto* hitbox : vHitboxOBJ)
+							if (hitbox->getName() == "HITBOX_WALL6_puerta.obj") //Esta es la puerta del cofre de figuras
+								hitbox->setHitboxActive(false);
+
+						StartHandAnimation(10);
+						idx_clue = 2;
 					}
-					fprintf(stderr, "[Porta Obertaaa mitja cap a baix]!\n");
 				}
 				break;
 
 				case TipusInteraccioContext::PORTA_CAPADALT:
 				{
-					portes_obertes[2] = true;
-					for (COBJModel* obj : vObOBJ)
+					if (joc_palanques_finalitzat)
 					{
-						if (obj->getName() == "puerta1.obj") obj->changeRendering(false);
-						if (obj->getName() == "puerta1_open.obj") obj->changeRendering(true);
+						portes_obertes[2] = true;
+						for (COBJModel* obj : vObOBJ)
+						{
+							if (obj->getName() == "puerta1.obj") obj->changeRendering(false);
+							if (obj->getName() == "puerta1_open.obj") obj->changeRendering(true);
+						}
+						for (auto* hitbox : vHitboxOBJ)
+							if (hitbox->getName() == "HITBOX_WALL11_puerta.obj")
+								hitbox->setHitboxActive(false);
+
+						StartHandAnimation(10);
+						idx_clue = 3;
 					}
-					fprintf(stderr, "[Porta Obertaaa mitja cap a dalt]!\n");
 				}
 				break;
 				case TipusInteraccioContext::PORTA_SUPERIOR_ENT:
 				{
-					portes_obertes[1] = true;
-					for (COBJModel* obj : vObOBJ)
+					if (joc_Matapatos_finalitzat)
 					{
-						if (obj->getName() == "puerta3.obj") obj->changeRendering(false);
-						if (obj->getName() == "puerta3_open.obj") obj->changeRendering(true);
+						portes_obertes[1] = true;
+						for (COBJModel* obj : vObOBJ)
+						{
+							if (obj->getName() == "puerta3.obj") obj->changeRendering(false);
+							if (obj->getName() == "puerta3_open.obj") obj->changeRendering(true);
+						}
+
+						for (auto* hitbox : vHitboxOBJ)
+							if (hitbox->getName() == "HITBOX_WALL15_puerta.obj")
+								hitbox->setHitboxActive(false);
+
+						StartHandAnimation(6);
+						idx_clue = 4;
 					}
 				}
 				break;
 
 				case TipusInteraccioContext::PORTA_SUPERIOR_SURT:
 				{
-					portes_obertes[0] = true;
-					for (COBJModel* obj : vObOBJ)
+					if (joc_simbolsFinal_finalitzat)
 					{
-						if (obj->getName() == "puerta2.obj") obj->changeRendering(false);
-						if (obj->getName() == "puerta2_open.obj") obj->changeRendering(true);
+						portes_obertes[0] = true;
+						for (COBJModel* obj : vObOBJ)
+						{
+							if (obj->getName() == "puerta2.obj") obj->changeRendering(false);
+							if (obj->getName() == "puerta2_open.obj") obj->changeRendering(true);
+						}
+
+						for (auto* hitbox : vHitboxOBJ)
+							if (hitbox->getName() == "HITBOX_WALL14_puerta.obj")
+								hitbox->setHitboxActive(false);
+						StartHandAnimation(10);
 					}
 				}
+				break;
+				case TipusInteraccioContext::PALANCA_1:  // PALANCAZZZ per jugar amb teclat
+				{
+					PlaySoundOnce(ID_LEVER);
+					actualPalanques[0] = !actualPalanques[0];
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "palanca6_white_down.obj") obj->changeRendering(!obj->isRendering());
+						if (obj->getName() == "palanca6_white_up.obj") obj->changeRendering(!obj->isRendering());
+					}
+
+					std::cout << std::boolalpha << actualPalanques[0] << std::endl;
+				}break;
+
+				case TipusInteraccioContext::PALANCA_2:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				{
+					PlaySoundOnce(ID_LEVER);
+					actualPalanques[1] = !actualPalanques[1];
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "palanca5_black_down.obj") obj->changeRendering(!obj->isRendering());
+						if (obj->getName() == "palanca5_black_up.obj") obj->changeRendering(!obj->isRendering());
+					}
+					std::cout << std::boolalpha << actualPalanques[1] << std::endl;
+				}
+				break;
+
+				case TipusInteraccioContext::PALANCA_3:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				{
+					PlaySoundOnce(ID_LEVER);
+					actualPalanques[2] = !actualPalanques[2];
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "palanca1_black_down.obj") obj->changeRendering(!obj->isRendering());
+						if (obj->getName() == "palanca1_black_up.obj") obj->changeRendering(!obj->isRendering());
+					}
+					std::cout << std::boolalpha << actualPalanques[2] << std::endl;
+				}
+				break;
+
+				case TipusInteraccioContext::PALANCA_4:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				{
+					PlaySoundOnce(ID_LEVER);
+					actualPalanques[3] = !actualPalanques[3];
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "palanca2_white_down.obj") obj->changeRendering(!obj->isRendering());
+						if (obj->getName() == "palanca2_white_up.obj") obj->changeRendering(!obj->isRendering());
+					}
+					std::cout << std::boolalpha << actualPalanques[3] << std::endl;
+				}
+				break;
+
+				case TipusInteraccioContext::PALANCA_5:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				{
+					PlaySoundOnce(ID_LEVER);
+					actualPalanques[4] = !actualPalanques[4];
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "palanca7_black_down.obj") obj->changeRendering(!obj->isRendering());
+						if (obj->getName() == "palanca7_black_up.obj") obj->changeRendering(!obj->isRendering());
+					}
+					std::cout << std::boolalpha << actualPalanques[4] << std::endl;
+				}
+				break;
+
+				case TipusInteraccioContext::PALANCA_6:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				{
+					PlaySoundOnce(ID_LEVER);
+					actualPalanques[5] = !actualPalanques[5];
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "palanca8_white_down.obj") obj->changeRendering(!obj->isRendering());
+						if (obj->getName() == "palanca8_white_up.obj") obj->changeRendering(!obj->isRendering());
+					}
+					std::cout << std::boolalpha << actualPalanques[5] << std::endl;
+				}
+				break;
+
+				case TipusInteraccioContext::PALANCA_7:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				{
+					PlaySoundOnce(ID_LEVER);
+					actualPalanques[6] = !actualPalanques[6];
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "palanca4_black_down.obj") obj->changeRendering(!obj->isRendering());
+						if (obj->getName() == "palanca4_black_up.obj") obj->changeRendering(!obj->isRendering());
+					}
+					std::cout << std::boolalpha << actualPalanques[6] << std::endl;
+				}
+				break;
+
+				case TipusInteraccioContext::PALANCA_8:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				{
+					PlaySoundOnce(ID_LEVER);
+					actualPalanques[7] = !actualPalanques[7];
+					for (COBJModel* obj : vObOBJ)
+					{
+						if (obj->getName() == "palanca3_black_down.obj") obj->changeRendering(!obj->isRendering());
+						if (obj->getName() == "palanca3_black_up.obj") obj->changeRendering(!obj->isRendering());
+					}
+					std::cout << std::boolalpha << actualPalanques[7] << std::endl;
+				}
+				break;
 
 				default:
 					break;
@@ -8034,6 +9608,13 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 			g_FVP_move = true;
 			FPV_SetMouseCapture(true);
 			fprintf(stderr, "[COFRE] Tancat amb ESC\n");
+			return;
+		}
+		if (cofre_final_on)
+		{
+			cofre_final_on = false;
+			g_FVP_move = true;
+			FPV_SetMouseCapture(true);
 			return;
 		}
 
@@ -10884,7 +12465,7 @@ int main(void)
 	//    GLFWwindow* window;
 	// Entorn VGI. Timer: Variables
 	float time = elapsedTime;
-	float now;
+	float now = 0.0f;
 	float delta;
 
 	// glfw: initialize and configure
@@ -10916,6 +12497,7 @@ int main(void)
 
 	// Create a windowed mode window and its OpenGL context */
 	window = glfwCreateWindow(640, 480, "EscapeRoom 3D - VGI", NULL, NULL);
+	//glfwWindowHint(GLFW_DECORATED, GLFW_FALSE); Per treure barra superior
 	if (!window)
 	{
 		fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 4.6 compatible. Try the 2.1 version of the tutorials.\n");
@@ -11041,27 +12623,34 @@ int main(void)
 
 	// 1. CARGA
 
-	if (!LoadAudio(MUSIC_FILE, ID_MUSIC, 40))         fprintf(stderr, "[AUDIO] Error loading Music\n");
+	if (!LoadAudio(MUSIC_FILE, ID_MUSIC, 10))         fprintf(stderr, "[AUDIO] Error loading Music\n");
 	if (!LoadAudio(STEPS_FILE, ID_STEPS, 100))         fprintf(stderr, "[AUDIO] Error loading Steps\n");
-	if (!LoadAudio(ITEM_FILE, ID_ITEM, 100))           fprintf(stderr, "[AUDIO] Error loading Item\n");
+	if (!LoadAudio(ITEM_FILE, ID_ITEM, 95))           fprintf(stderr, "[AUDIO] Error loading Item\n");
 	if (!LoadAudio(STAIRS_FILE, ID_STAIRS, 100))       fprintf(stderr, "[AUDIO] Error loading Stairs\n");
 	if (!LoadAudio(CHEST_FILE, ID_CHEST, 100))         fprintf(stderr, "[AUDIO] Error loading Chest\n");
 	if (!LoadAudio(QUACK_FILE, ID_QUACK, 100))         fprintf(stderr, "[AUDIO] Error loading Quack\n");
-	if (!LoadAudio(DOOR_FILE, ID_DOOR, 100))           fprintf(stderr, "[AUDIO] Error loading Door\n");
+	if (!LoadAudio(DOOR_FILE, ID_DOOR, 50))           fprintf(stderr, "[AUDIO] Error loading Door\n");
 	if (!LoadAudio(FLASH_ON_FILE, ID_FLASH_ON, 100))   fprintf(stderr, "[AUDIO] Error loading Flash ON\n");
 	if (!LoadAudio(FLASH_OFF_FILE, ID_FLASH_OFF, 100)) fprintf(stderr, "[AUDIO] Error loading Flash OFF\n");
-	if (!LoadAudio(GUN_FILE, ID_GUN, 80)) fprintf(stderr, "[AUDIO] Error loading Gun\n");
+	if (!LoadAudio(GUN_FILE, ID_GUN, 20)) fprintf(stderr, "[AUDIO] Error loading Gun\n");
 	if (!LoadAudio(OPEN_BOOK_FILE, ID_OPEN_BOOK, 100)) fprintf(stderr, "[AUDIO] Error loading Open Book\n");
 	if (!LoadAudio(CLOSE_BOOK_FILE, ID_CLOSE_BOOK, 100)) fprintf(stderr, "[AUDIO] Error loading Close Book\n");
-	if (!LoadAudio(MENU_HOVER_FILE, ID_MENU_HOVER, 100)) fprintf(stderr, "[AUDIO] Error loading Menu hover\n");
-	if (!LoadAudio(MENU_SELECT_FILE, ID_MENU_SELECT, 100)) fprintf(stderr, "[AUDIO] Error loading Menu Select\n");
+	if (!LoadAudio(MENU_HOVER_FILE, ID_MENU_HOVER, 7)) fprintf(stderr, "[AUDIO] Error loading Menu hover\n");
+	if (!LoadAudio(MENU_SELECT_FILE, ID_MENU_SELECT, 40)) fprintf(stderr, "[AUDIO] Error loading Menu Select\n");
+	if (!LoadAudio(WAKING_FILE, ID_WAKING, 80)) fprintf(stderr, "[AUDIO] Error loading WAKING Select\n");
+	if (!LoadAudio(LEATHER_FILE, ID_LEATHER, 80)) fprintf(stderr, "[AUDIO] Error loading LEATHER Select\n");
+	if (!LoadAudio(MUSIC_2_FILE, ID_MUSIC_2, 7))         fprintf(stderr, "[AUDIO] Error loading Music 2\n");
+	if (!LoadAudio(LEVER_FILE, ID_LEVER, 90))         fprintf(stderr, "[AUDIO] Error loading Lever\n");
+	if (!LoadAudio(CLICK_FILE, ID_CLICK, 50))         fprintf(stderr, "[AUDIO] Error loading Click\n");
+	if (!LoadAudio(FINAL_FILE, ID_FINAL, 100))         fprintf(stderr, "[AUDIO] Error loading Click\n");
 
 	fprintf(stderr, "sorrolls carregats\n");
 
 	// 2. CONFIGURAR VOLÚMENES (Opcional, ajusta a tu gusto de 0 a 100)
 
 	// Aplicar el nuevo volumen de efectos a todos los canales SFX
-	SetVolume(ID_MUSIC, g_musicVolume * 0.15);
+	SetVolume(ID_MUSIC, g_musicVolume);
+	SetVolume(ID_MUSIC_2, g_musicVolume);
 	/////
 	// Aplicamos volumen máster a todos los demás efectos usando el array
 	for (size_t i = 0; i < SFX_COUNT; ++i) {
@@ -11074,6 +12663,7 @@ int main(void)
 
 	glfwSwapInterval(0);
 
+	//OnFull_Screen(primary, window);Pantalla Completa
 	// 	// ====== FIN INICIALIZACIÓN ======
 
 	unsigned long long frame = 0;
@@ -11082,11 +12672,11 @@ int main(void)
 	LoadAllFonts();
 
 	AfegirItemInventari(
-		"candelabre",
-		"Candelabre",
+		"espelma",
+		"espelma",
 		"Una espelma feta servir, encara util per iluminar."
 	);
-
+	GameState preEstate = GameState::INIT;
 	// Loop until the user closes the window
 	while (!glfwWindowShouldClose(window))
 	{
@@ -11106,7 +12696,7 @@ int main(void)
 		{
 			g_FVP_move = false;
 			//PauseMusic();
-			renderOptions(window);
+			renderOptions(window, preEstate);
 		}
 		else if (act_state == GameState::CLUE)
 		{
@@ -11123,7 +12713,7 @@ int main(void)
 		else if (act_state == GameState::LOADING) //pattata
 		{
 			g_FVP_move = false;
-
+			preEstate = GameState::GAME;
 			if (!fpv_started)
 			{
 				renderLoading(window, 0.0f);
@@ -11141,6 +12731,17 @@ int main(void)
 				renderLoading(window, 0.6f);
 
 				EnterFPV();
+
+				g_RoomYMin = 3.5f;
+				g_RoomYMax = g_RoomYMin + g_RoomHeight;
+				g_FPVPos.x = -6.0f;
+				g_FPVPos.z = 0.27f;
+				g_FPVPos.y = g_RoomYMin + g_PlayerEye;
+				g_FPVYaw = 1.44f;
+				g_FPVPitch = -10.52f;
+				g_VelY = 0.0f;
+				g_Grounded = true;
+
 				renderLoading(window, 0.8f);
 
 				initExtraTextures();
@@ -11155,12 +12756,25 @@ int main(void)
 			{
 				act_state = GameState::GAME;
 				FPV_SetMouseCapture(true);
+
+				StopSound(ID_MUSIC);
+
+				// 2. Arrancamos la música del juego en bucle
+				PlayMusicLoop(ID_MUSIC_2);
+
+				// --- INICIO DEL FADE (Solo se ejecuta 1 vez aquí) ---
+				g_CurrentFadeState = FADE_IN;
+				g_FadeAlpha = 1.0f;       // Empezar en negro
+				g_IntroHandsPlayed = false;
+				// ----------------------------------------------------
+
+				previous = glfwGetTime(); // <--- AÑADE ESTA LÍNEA
 			}
 		}
 		else if (act_state == GameState::GAME)
 		{
 			// Si NO hi ha cap HUD "gran" obert → podem moure'ns en FPV
-			if (!cofre_on && !g_InventariObert && !g_MapaPalanquesObrit)
+			if (!cofre_on && !g_InventariObert && !g_MapaPalanquesObrit && !cofre_final_on)
 			{
 				FPV_SetMouseCapture(true);
 				g_FVP_move = true;
@@ -11177,17 +12791,26 @@ int main(void)
 				StartHandAnimation(14);     // “oh dios mio mis manos”
 				g_IntroHandsPlayed = true;  // para que no se repita nunca más
 			}
-
-
-			// ── Temps / dt del joc ──────────────────────────────────────
+			// ─────────────────────────────────────────────────────────────
+			// 1. CÁLCULO CENTRALIZADO DEL TIEMPO
+			// ─────────────────────────────────────────────────────────────
 			now = glfwGetTime();
-			float dt = (now - previous) * g_TimeScale;
+			dt_real = (now - previous); // Tiempo real puro
 			previous = now;
-			if (dt > 0.05f) dt = 0.05f;
 
-			// Timers del joc
-			time -= dt;
-			g_TempsTranscorregut += 0.05f;
+			// CRONÓMETRO: Usa siempre el tiempo real (así no se ralentiza con el lag)
+			g_TempsTranscorregut += dt_real;
+			time -= dt_real;
+
+			// FÍSICA/JUEGO: Ponemos un límite para que no atravieses paredes si hay mucho lag
+			// Subimos el límite a 0.15f (bajamos a ~7 FPS antes de entrar en slow motion)
+			dt_juego = dt_real * g_TimeScale;
+			if (dt_juego > 0.15f) dt_juego = 0.15f;
+
+			// --- LÓGICA DEL FADE Y ANIMACIÓN ---
+			// Maneja la intro, los teletransportes y la opacidad automáticamente.
+			UpdateFadeSystem(dt_real);
+
 			if ((time <= 0.0f) && (satelit || anima))
 				OnTimer();
 
@@ -11198,20 +12821,20 @@ int main(void)
 			// 1) ESCENA 3D + SOBEL (sense ImGui) → OnPaint
 			//    (aquí es fa el glClear, Draw sala, props, Sobel, mà, etc.)
 			// ─────────────────────────────────────────────────────────────
-			OnPaint(window);
+			OnPaint(window, dt_juego);
 
 			// ─────────────────────────────────────────────────────────────
 			// 2) HUD / INTERFÍCIES ImGui (Press E, cofre, inventari, etc.)
 			//    → draw_scene construeix i pinta l'ImGui DAMUNT de l'escena
 			// ─────────────────────────────────────────────────────────────
 			draw_scene();
-
+			//UpdateFadeSystem(dt);
 			// ─────────────────────────────────────────────────────────────
 			// 3) RAYCAST / LÒGICA ADDICIONAL basada en la càmera FPV
 			// ─────────────────────────────────────────────────────────────
 			RaycastFPV(g_FPVYaw, g_FPVPitch, g_FPVPos);
 			ShootFPVRay(g_FPVYaw, g_FPVPitch, g_FPVPos); // cada 5s
-			UpdatePersistentRays(dt);
+			//UpdatePersistentRays(dt);
 
 			// ─────────────────────────────────────────────────────────────
 			// 4) SWAP BUFFERS → presentem escena 3D + HUD ImGui

@@ -88,15 +88,18 @@ void CheckPlayerSlidingCollisionNew(glm::vec3 nextPos, const float radius,
 		glm::vec3 accumulatedNormal(0.0f);
 
 		for (COBJModel* hitbox : vHitboxOBJ) {
-			glm::vec3 beforeP0 = playerCap.p0;
-			glm::vec3 beforeP1 = playerCap.p1;
+			if (hitbox->isHitboxActive())
+			{
+				glm::vec3 beforeP0 = playerCap.p0;
+				glm::vec3 beforeP1 = playerCap.p1;
 
-			bool collidedThis = ResolveCapsuleOBBSlidingCollision(playerCap, hitbox->getOBB());
-			if (collidedThis) {
-				collided = true;
+				bool collidedThis = ResolveCapsuleOBBSlidingCollision(playerCap, hitbox->getOBB());
+				if (collidedThis) {
+					collided = true;
 
-				glm::vec3 correction = (playerCap.p0 - beforeP0); // movement done by Resolve()
-				accumulatedNormal += glm::normalize(correction);
+					glm::vec3 correction = (playerCap.p0 - beforeP0); // movement done by Resolve()
+					accumulatedNormal += glm::normalize(correction);
+				}
 			}
 
 		}

@@ -7,7 +7,10 @@ uniform float uThreshold;    // 0..1
 uniform float uDitherAmp;    // 0.0..1.0
 uniform bool  uGammaMap;     // pow(thr,2.2)
 uniform bool  uSobelMaskPass;
+uniform bool uSobelTargetObj; // <- NUEVO
 uniform bool uInspecciona;
+
+
 
 float bayer8x8(vec2 p) {
     int x = int(mod(p.x, 8.0));
@@ -149,6 +152,7 @@ void main()
         vec3 n = normalize(vNormalWS);   
         // La passem de rang [-1,1] a [0,1] per guardar-la en RGB
         n = n * 0.5 + 0.5;
+	float a = uSobelTargetObj ? 1.0 : 0.0;   // <- alpha marca “target”
         FragColor = vec4(n, 1.0);
         return;
     }
@@ -186,13 +190,10 @@ void main()
         float spec  = pow(max(dot(R, Ldir), 0.0), max(material.shininess, 1.0));
         vec3  specC = spec * uHeadColor * 0.5; 
 
-        float power = 2.0f;
-        lit.rgb += (diff + specC) * atten * cone;
+        vec3 head = (diff + specC) * atten * cone;
+	if (uInspecciona) head *= 2.0;   // power
+	lit.rgb += head;
 
-        if (uInspecciona)
-        {
-            lit.rgb *= power;
-        }
     }
 
     // 3) Textura (si procedeix)

@@ -20,6 +20,13 @@
 #define ID_CLOSE_BOOK L"fx_close_book"
 #define ID_MENU_HOVER L"fx_menu_hover"
 #define ID_MENU_SELECT L"fx_menu_select"
+#define ID_WAKING L"fx_waking"
+#define ID_LEATHER L"fx_leather"
+#define ID_MUSIC_2 L"bg_music_2"
+#define ID_LEVER L"fx_lever"
+#define ID_CLICK L"fx_click"
+#define ID_FINAL L"fx_final"
+
 
 // --- VARIABLES GLOBALES DE VOLUMEN (Compartidas con ImGui) ---
 extern int g_musicVolume; // Volumen Música (0-100)

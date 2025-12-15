@@ -5,9 +5,9 @@ import os
 import re
 
 # === CONFIG ===
-FRAMES_DIR   = r"C:\Users\artur\Desktop\VERSIONES VGI\ACTUAL\EntornVGI\textures\hands\Animation13" 
-PATTERN      = "Animation13_*.png"
-OUTPUT_NAME  = "Animation13_sheet.png"
+FRAMES_DIR   = r"C:\Users\artur\Desktop\VERSIONES VGI\VERSION 9_12_25\EntornVGI\textures\hands\Animation18" 
+PATTERN      = "Animation18_*.png"
+OUTPUT_NAME  = "Animation18_sheet.png"
 
 COLS         = 22
 TARGET_W     = 256

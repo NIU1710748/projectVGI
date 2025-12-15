@@ -13,6 +13,9 @@
 #include "../include/gl/SOIL2.h"
 #include "music.h"
 
+extern bool g_EndgameActive;
+
+
 // ---- Forward declarations per a gamepad + ratolí virtual ----
 struct GamepadState {
     bool connected = false;
@@ -224,9 +227,23 @@ bool ButtonWithSound(const char* label, const ImVec2& size)
     return pressed;
 }
 
+// Función auxiliar para Flechas (Solo sonido al hacer clic, sin hover)
+bool ArrowButtonWithSound(const char* str_id, ImGuiDir dir)
+{
+    // 1. Dibujamos la flecha estándar de ImGui
+    if (ImGui::ArrowButton(str_id, dir))
+    {
+        // 2. Si se ha pulsado, reproducimos el sonido
+        // Puedes usar ID_MENU_SELECT o crear uno nuevo tipo ID_LOCK_CLICK si quieres un sonido mecánico
+        PlaySoundOnce(ID_CLICK);
+
+        return true; // Devolvemos true para que el 'if' principal funcione
+    }
+    return false;
+}
+
 
 // -------------------- Render Inici --------------------
-
 void renderInici(GLFWwindow* window)
 {
     glfwPollEvents();
@@ -236,8 +253,7 @@ void renderInici(GLFWwindow* window)
 
     {
         ImGuiIO& io = ImGui::GetIO();
-        float dtPad = io.DeltaTime;
-        if (dtPad <= 0.0f) dtPad = 1.0f / 60.0f;
+        float dtPad = io.DeltaTime > 0.0f ? io.DeltaTime : 1.0f / 60.0f;
 
         UpdateGamepad(dtPad);
         g_UsePadMouse = g_Pad.connected;
@@ -246,18 +262,13 @@ void renderInici(GLFWwindow* window)
             UpdatePadMouseForImGui(window);
     }
 
-
     int display_w, display_h;
     glfwGetWindowSize(window, &display_w, &display_h);
 
     draw_image(texInit, display_w, display_h);
 
-    // La finestra cobreix tota la imatge
-    ImVec2 hudSize(display_w, display_h);
-    ImVec2 hudPos(0, 0);
-
-    ImGui::SetNextWindowPos(hudPos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(hudSize, ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display_w, display_h), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
 
     ImGui::Begin("Inici", nullptr,
@@ -266,27 +277,12 @@ void renderInici(GLFWwindow* window)
         ImGuiWindowFlags_NoSavedSettings |
         ImGuiWindowFlags_NoTitleBar);
 
+
     ImVec2 buttonSize(display_w / 8.0f, display_h / 14.0f);
-    float fontScale = display_h / 400.0f;
-    ImGui::SetWindowFontScale(fontScale);
-
-
-    float quadrantX = display_w * 0.6f;
-    float quadrantY = display_h * 0.5f;
-    float quadrantWidth = display_w * 0.5f;
-    float quadrantHeight = display_h * 0.5f;
-
-    float spacing = 50.0f;
-    int numButtons = 2;
-    float totalHeight = buttonSize.y * numButtons + spacing * (numButtons - 1);
-
-    // Centre del quadrant
-    float centerX = quadrantX + quadrantWidth * 0.5f;
-    float centerY = quadrantY + quadrantHeight * 0.5f;
-
-    // Posició inicial centrada
-    float startX = centerX - buttonSize.x * 0.5f;
-    float startY = centerY - totalHeight * 0.5f;
+    float spacing = 40.0f;
+    float  fontScale = display_h / 400.0f;
+    float buttonsX = display_w * 0.8f;          // 70% cap a la dreta
+    float buttonsStartY = display_h * 0.55f;     // meitat inferior
 
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
@@ -294,25 +290,35 @@ void renderInici(GLFWwindow* window)
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.8f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 1));
 
-    ImGui::SetCursorPos(ImVec2(startX, startY));
-    if (ButtonWithSound("Jugar", buttonSize)) act_state = GameState::LOADING;
+    ImGui::SetWindowFontScale(fontScale);
 
-    ImGui::SetCursorPos(ImVec2(startX, startY + buttonSize.y + spacing));
-    if (ButtonWithSound("Opciones", buttonSize)) act_state = GameState::OPTIONS;
+    ImGui::SetCursorPosX(buttonsX);
+    ImGui::SetCursorPosY(buttonsStartY);
+    if (ButtonWithSound("Jugar", buttonSize))
+        act_state = GameState::LOADING;
 
-    ImGui::SetCursorPos(ImVec2(startX, startY + buttonSize.y + spacing *4));
-    if (ButtonWithSound("Sortir", buttonSize))  glfwSetWindowShouldClose(window, GLFW_TRUE);
+    ImGui::SetCursorPosX(buttonsX);
+    ImGui::SetCursorPosY(buttonsStartY + buttonSize.y + spacing);
+    if (ButtonWithSound("Opciones", buttonSize))
+        act_state = GameState::OPTIONS;
+
+    ImGui::SetCursorPosX(buttonsX);
+    ImGui::SetCursorPosY(buttonsStartY + (buttonSize.y + spacing) * 2);
+    if (ButtonWithSound("Sortir", buttonSize))
+        glfwSetWindowShouldClose(window, GLFW_TRUE);
 
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(4);
+
     ImGui::End();
 
+    // --- Render final ---
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(window);
 }
+
 // -------------------- Render Menu --------------------
 
 void renderMenu(GLFWwindow* window)
@@ -418,7 +424,7 @@ void renderMenu(GLFWwindow* window)
 
 // -------------------- Render Options --------------------
 
-void renderOptions(GLFWwindow* window)
+void renderOptions(GLFWwindow* window, GameState pre)
 {
     glfwPollEvents();
     ImGui_ImplOpenGL3_NewFrame();
@@ -516,11 +522,6 @@ void renderOptions(GLFWwindow* window)
 
     }
 
-    ImGui::NewLine();
-    ImGui::SetCursorPosX(centerX);
-    ImGui::Text("Brillantor ");
-
-
     ImGui::SetCursorPosX(centerX);
     ImGui::Text("Tipus de Font: ");
 
@@ -541,7 +542,7 @@ void renderOptions(GLFWwindow* window)
     offsetY = display_h * 0.6f;
     ImGui::SetCursorPosY(offsetY);
     ImGui::SetCursorPosX(centerX);
-    if (ButtonWithSound("Enrere", buttonSize)) act_state = GameState::MENU;
+    if (ButtonWithSound("Enrere", buttonSize)) act_state = pre;
 
     // ImGui::PopItemWidth();
     ImGui::PopStyleVar();
@@ -549,128 +550,6 @@ void renderOptions(GLFWwindow* window)
     ImGui::End();
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    glfwSwapBuffers(window);
-}
-
-// -------------------- Render Item Descriptions --------------------
-
-void renderItemDescription(GLFWwindow* window, const std::string& itemName, const std::string& itemDescription)
-{
-    // --- Entrada de GLFW ---
-    glfwPollEvents();
-
-    // --- Començar frame ImGui ---
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    {
-        ImGuiIO& io = ImGui::GetIO();
-        float dtPad = io.DeltaTime;
-        if (dtPad <= 0.0f) dtPad = 1.0f / 60.0f;
-
-        // Actualitzem l'estat del gamepad (sticks + botons)
-        UpdateGamepad(dtPad);
-
-        // Permetre el cursor amb pad si està connectat
-        g_UsePadMouse = g_Pad.connected;
-
-        if (g_UsePadMouse)
-        {
-            // Mou el cursor d'ImGui + el cursor del sistema amb el stick dret
-            UpdatePadMouseForImGui(window);
-        }
-    }
-
-    // Obtenir mida de la finestra
-    int display_w = 0, display_h = 0;
-    glfwGetWindowSize(window, &display_w, &display_h);
-
-    // Mida de la finestra de descripció (percentatge de la pantalla)
-    ImVec2 windowSize(display_w * 0.4f, display_h * 0.3f);
-
-    // Posicionar al centre de la pantalla
-    ImVec2 windowPos((display_w - windowSize.x) * 0.5f, (display_h - windowSize.y) * 0.5f);
-
-    // Estil de la finestra (fons semi-transparent amb vores arrodonides)
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 15.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.1f, 0.15f, 0.95f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.4f, 0.4f, 0.6f, 0.8f));
-    ImGui::PushStyleColor(ImGuiCol_BorderShadow, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-
-    ImGui::SetNextWindowPos(windowPos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(windowSize, ImGuiCond_Always);
-
-    // Flags per a la finestra (sense barra de títol, sense redimensionar)
-    ImGui::Begin("Item Description", nullptr,
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoSavedSettings |
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoScrollbar);
-
-    // Estil per al text
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-
-    // Nom de l'ítem (centrat i més gran)
-    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Font per defecte o una més gran si tens
-    ImGui::SetCursorPosX((windowSize.x - ImGui::CalcTextSize(itemName.c_str()).x) * 0.5f);
-    ImGui::TextColored(ImVec4(0.9f, 0.8f, 0.3f, 1.0f), "%s", itemName.c_str());
-    ImGui::PopFont();
-
-    // Separador
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    // Descripció de l'ítem (text ajustat)
-    ImGui::PushTextWrapPos(windowSize.x - 40.0f); // Wrap text dins la finestra
-    ImGui::TextWrapped("%s", itemDescription.c_str());
-    ImGui::PopTextWrapPos();
-
-    ImGui::PopStyleColor(); // ImGuiCol_Text
-
-    // Botó per tancar (al peu de la finestra)
-    ImGui::SetCursorPosY(windowSize.y - 60.0f);
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    ImVec2 buttonSize(windowSize.x * 0.3f, 35.0f);
-    ImGui::SetCursorPosX((windowSize.x - buttonSize.x) * 0.5f);
-
-    // Estil del botó
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.5f, 0.8f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.6f, 0.9f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.4f, 1.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-
-    if (ImGui::Button("Tancar", buttonSize))
-    {
-        // Aquí pots afegir la lògica per tancar la finestra de descripció
-        // Per exemple: showItemDescription = false;
-    }
-
-    // Si vols permetre tancar amb la tecla ESC
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape))
-    {
-        // Lògica per tancar la finestra
-    }
-
-    ImGui::PopStyleVar(); // FrameRounding
-    ImGui::PopStyleColor(3); // Colors del botó
-
-    ImGui::End();
-
-    // Restaurar estils
-    ImGui::PopStyleColor(3); // Colors de la finestra
-    ImGui::PopStyleVar(2); // WindowRounding i WindowPadding
-
-    // --- Render final ---
-    // IMPORTANT: No fem glClear aquí perquè volem veure el joc al fons
-    // El joc ja hauria de ser renderitzat abans de cridar aquesta funció
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -689,8 +568,8 @@ GLuint texInventariFons = 0;
 
 void initExtraTextures()
 {
-    texCandelabreOn = loadTextureReturnID("../EntornVGI/textures/hud/candelabre.png");
-    texCandelabreOff = loadTextureReturnID("../EntornVGI/textures/hud/candelabre - tancat.png");
+    texCandelabreOn = loadTextureReturnID("../EntornVGI/textures/hud/espelma_on.png");
+    texCandelabreOff = loadTextureReturnID("../EntornVGI/textures/hud/espelma_off.png");
     texPistas = loadTextureReturnID("../EntornVGI/textures/backgrounds/llibre_vuit.png");
     texCrono = loadTextureReturnID("../EntornVGI/textures/hud/cronometre.png");
     texEnd = loadTextureReturnID("../EntornVGI/textures/backgrounds/end_balena.png");
@@ -712,53 +591,28 @@ void cleanupExtraTextures()
 }
 
 
-void renderInstruccions(GLFWwindow* window)
-{
-    int display_w, display_h;
-    glfwGetWindowSize(window, &display_w, &display_h);
-
-    ImVec2 hudSize(display_w / 2.5f, display_h / 10.0f);
-    ImVec2 hudPos(0.0f, display_h - hudSize.y);
-
-    ImGui::SetNextWindowPos(hudPos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(hudSize, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.2f);
-
-    ImGui::Begin("Instrucciones", nullptr,
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoSavedSettings);
-
-    float fontScale = display_h / 600.0f;
-    ImGui::SetWindowFontScale(fontScale);
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
-
-    ImGui::TextWrapped("(ESC) per obrir menu");
-    ImGui::TextWrapped("(I) obrir inventari");
-
-    ImGui::PopStyleColor();
-    ImGui::End();
-}
-
 // -------------------- Render Candelabre --------------------
 void renderCandelabre(GLFWwindow* window, bool& g_HeadlightEnabled)
 {
     int display_w, display_h;
     glfwGetWindowSize(window, &display_w, &display_h);
 
-    ImVec2 hudSize(display_w / 200.0f, display_h / 200.0f);
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display_w, display_h), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+
+    float iconScale = 0.1f;
+    float iconW = display_w * iconScale;
+    float iconH = iconW * 0.9f;
+
+    ImVec2 hudSize(display_w / 400.0f, display_h / 350.0f);
     ImVec2 hudPos(display_w, display_h - hudSize.y);
 
-    ImGui::SetNextWindowPos(hudPos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(hudSize, ImGuiCond_Always);
+    float posX = hudPos.x / 1.25f;
+    float posY = hudPos.y / 1.25f;
 
     GLuint tex = g_HeadlightEnabled ? texCandelabreOn : texCandelabreOff;
-    draw_image(tex, display_w / 6.0f, display_h / 6.0f,
-        hudPos.x / 1.25f, hudPos.y / 1.25f);
-
-    ImGui::SetNextWindowBgAlpha(0.0f);
+    draw_image(tex, iconW, iconH, posX, posY);
 
     ImGui::Begin("candelabre", nullptr,
         ImGuiWindowFlags_NoCollapse |
@@ -838,15 +692,27 @@ std::vector<bool> portes_obertes = { false, false, false, false };
 
 bool g_ShowReward = false;
 double g_RewardStartTime = 0.0;
-double g_RewardDuration = 3.0; // segons
+double g_RewardDuration = 0.0; // segons
 
+double g_RewardStartTimePal = 0.0;
+double g_RewardDurationPal = 0.0; // segons
+
+double g_RewardStartTimeFinal = 0.0;
+double g_RewardDurationFinal = 0.0; // segons
+
+bool joc_Matapatos_finalitzat = false;
 void claimRewards(ImGuiIO& io, int index)
 {
+
+    if (g_EndgameActive) return;
+
     ImGui::SetNextWindowPos(
         ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.18f),
         ImGuiCond_Always,
         ImVec2(0.5f, 0.0f)
     );
+
+
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar
         | ImGuiWindowFlags_NoResize
@@ -862,9 +728,15 @@ void claimRewards(ImGuiIO& io, int index)
     ImGui::Begin("Reward", nullptr, flags);
     switch (index)
     {
-    case 0: ImGui::Text("Has aconseguit una clau rovellada!"); break;
-    case 1: ImGui::Text("Has aconseguit una destral!"); break;
-    case 2: ImGui::Text("Has aconseguit una clau luxosa!"); break;
+    case 0:
+        ImGui::Text("Has aconseguit una clau rovellada!"); break;
+    case 1:
+        ImGui::Text("Has aconseguit una destral!"); break;
+    case 2:
+        ImGui::Text("Has aconseguit una clau luxosa!"); break;
+    case 3:
+        ImGui::Text("Has aconseguit una clau mestre!"); break;
+    default: break;
     }
 
     ImGui::End();
@@ -889,11 +761,9 @@ void renderCofreContrasena(GLFWwindow* window)
     int display_w = 0, display_h = 0;
     glfwGetWindowSize(window, &display_w, &display_h);
 
-    ImVec2 hudSize(display_w, display_h);
-    ImVec2 hudPos(0, 0);
-
-    ImGui::SetNextWindowPos(hudPos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(hudSize, ImGuiCond_Always);
+    // --- Finestra HUD invisible ---
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display_w, display_h), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
 
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.5f, 0.6f));
@@ -907,8 +777,8 @@ void renderCofreContrasena(GLFWwindow* window)
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoSavedSettings);
 
-    // --- Dibuixar el marc centrat ---
-    ImVec2 marcSize(display_w * 0.6f, display_h * 0.6f); // 60% de la pantalla
+    float marcScale = 0.6f; // 60% de la pantalla
+    ImVec2 marcSize(display_w * marcScale, display_h * marcScale);
     ImVec2 marcPos((display_w - marcSize.x) * 0.5f, (display_h - marcSize.y) * 0.5f);
 
     ImGui::GetBackgroundDrawList()->AddImage(
@@ -916,9 +786,14 @@ void renderCofreContrasena(GLFWwindow* window)
         marcPos,
         ImVec2(marcPos.x + marcSize.x, marcPos.y + marcSize.y));
 
-    // --- Mida de cada símbol ---
-    ImVec2 simbolSize(100, 128);
-    float spacing = 10.0f;
+    float simbolWidth = marcSize.x * 0.13f;     // 12% de l'amplada del marc
+    float simbolHeight = simbolWidth * 1.28f;   // proporció original 100x128
+    ImVec2 simbolSize(simbolWidth, simbolHeight);
+
+    float arrowSize = simbolWidth * 0.35f;      // 35% de l’amplada del símbol
+    ImVec2 arrowButtonSize(arrowSize, arrowSize);
+
+    float spacing = simbolWidth * 0.15f;
 
     float totalWidth = 4 * simbolSize.x + 3 * spacing;
     float startX = marcPos.x + (marcSize.x - totalWidth) * 0.5f;
@@ -930,18 +805,23 @@ void renderCofreContrasena(GLFWwindow* window)
     {
         ImGui::BeginGroup();
 
-        if (ImGui::ArrowButton(("##up" + std::to_string(i)).c_str(), ImGuiDir_Up))
+        ImGui::PushID(i * 10);
+        if (ArrowButtonWithSound("up", ImGuiDir_Up))
             ranures[i] = (ranures[i] + 1) % numSymbols;
+        ImGui::PopID();
 
         int idx = ranures[i];
         ImGui::Image((void*)(intptr_t)simbol_textures[idx], simbolSize);
 
-        if (ImGui::ArrowButton(("##down" + std::to_string(i)).c_str(), ImGuiDir_Down))
+        ImGui::PushID(i * 10 + 1);
+        if (ArrowButtonWithSound("down", ImGuiDir_Down))
             ranures[i] = (ranures[i] - 1 + numSymbols) % numSymbols;
+        ImGui::PopID();
 
         ImGui::EndGroup();
 
-        if (i < 3) ImGui::SameLine(0.0f, spacing);
+        if (i < 3)
+            ImGui::SameLine(0.0f, spacing);
     }
 
     // --- Popup de contrasenya ---
@@ -973,12 +853,8 @@ void renderCronometre(GLFWwindow* window)
     int minuts = static_cast<int>(tempsRestant) / 60;
     int segons = static_cast<int>(tempsRestant) % 60;
 
-    // La finestra ocupa tota la pantalla
-    ImVec2 cronoPos(0, 0);
-    ImVec2 cronoSize(display_w, display_h);
-
-    ImGui::SetNextWindowPos(cronoPos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(cronoSize, ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display_w, display_h), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
 
     if (ImGui::Begin("Cronometre", nullptr,
@@ -987,21 +863,34 @@ void renderCronometre(GLFWwindow* window)
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoSavedSettings))
     {
-        ImVec2 imageSize(display_w / 7.0f, display_h / 4.2f); // mida de la imatge
-        ImGui::SetCursorPos(ImVec2(0, 0));
+        float cronoScaleW = 0.16f;
+        float cronoScaleH = 0.20f;
+
+        ImVec2 imageSize(display_w * cronoScaleW, display_h * cronoScaleH);
+
+        ImGui::SetCursorPos(ImVec2(display_w * 0.02f, display_h * 0.025f));
+
+        ImVec2 imagePos = ImGui::GetCursorScreenPos();
         ImGui::Image((void*)(intptr_t)texCrono, imageSize);
 
-        ImVec2 textSize = ImGui::CalcTextSize("00:00");
-        float textX = (imageSize.x - textSize.x) * 0.5f;
-        float textY = (imageSize.y - textSize.y) * 0.65f;
-        ImGui::SetCursorPos(ImVec2(textX, textY));
-
-        float fontScale = display_h / 500.0f;
+        float fontScale = display_h * 0.002f;
         ImGui::SetWindowFontScale(fontScale);
+
+        char buffer[16];
+        snprintf(buffer, sizeof(buffer), "%02d:%02d", minuts, segons);
+
+        ImVec2 textSize = ImGui::CalcTextSize(buffer);
+
+        float textX = imagePos.x + (imageSize.x - textSize.x) * 0.5f;
+        float textY = imagePos.y + (imageSize.y - textSize.y) * 0.6f;
+
+        ImGui::SetCursorScreenPos(ImVec2(textX, textY));
+
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 1));
-        ImGui::Text("%02d:%02d", minuts, segons);
+        ImGui::Text("%s", buffer);
         ImGui::PopStyleColor();
     }
+
     ImGui::End();
 
     if (g_TempsTranscorregut >= g_DuradaCronometre)
@@ -1162,11 +1051,34 @@ void renderPistas(GLFWwindow* window)
     else if (idx_clue == 2)
     {
         ImGui::SetCursorPosX(centerX);
-        ImGui::Text("Una clau rovellada.");
+        ImGui::Text("Quantes palanques hi ha?");
         ImGui::SetCursorPosX(centerX);
-        ImGui::Text("Sembla que coincideix amb una de les");
+        ImGui::Text("Potser si trobo una combinacio");
         ImGui::SetCursorPosX(centerX);
-        ImGui::Text("portes.");
+        ImGui::Text("podre obrir la porta d'adalt.");
+    }
+    else if (idx_clue == 3)
+    {
+        ImGui::SetCursorPosX(centerX);
+        ImGui::Text("No puc obrir la porta per sortir.");
+        ImGui::SetCursorPosX(centerX);
+        ImGui::Text("El pitjor es que a la planta mitjana");
+        ImGui::SetCursorPosX(centerX);
+        ImGui::Text("hi ha un soroll extrany que surt");
+        ImGui::SetCursorPosX(centerX);
+        ImGui::Text("d'una de les finestres.");
+    }
+    else if (idx_clue == 4)
+    {
+        ImGui::SetCursorPosX(centerX);
+        ImGui::Text("L'ultim cofre, pero d'on trec");
+        ImGui::SetCursorPosX(centerX);
+        ImGui::Text("la seva contrasenya?");
+        ImGui::SetCursorPosX(centerX);
+        ImGui::Text("Potser si investigo els objectes");
+        ImGui::SetCursorPosX(centerX);
+        ImGui::Text("del vaixell.");
+
     }
 
     offsetY = display_h * 0.6f;
@@ -1184,3 +1096,102 @@ void renderPistas(GLFWwindow* window)
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(window);
 }
+
+
+bool joc_simbolsFinal_finalitzat = false;
+std::vector<int> numActual = { 0,0,0,0 };
+std::vector<int> numFinalSolucio = { 9,4,6,7 };
+bool quadrats_loaded = false;
+bool cofre_final_on = false;
+
+void renderCofreFinal(GLFWwindow* window)
+{
+    // --- Carregar textures numèriques ---
+    if (!quadrats_loaded)
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            std::string path = "../EntornVGI/textures/minijocs/numeric_" + std::to_string(i) + ".png";
+            simbol_textures[i] = loadTextureReturnID(path.c_str());
+        }
+        quadrats_loaded = true;
+    }
+
+    int display_w = 0, display_h = 0;
+    glfwGetWindowSize(window, &display_w, &display_h);
+
+    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display_w, display_h), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.5f, 0.5f, 0.6f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.6f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 1));
+
+    ImGui::Begin("CofreFinal", nullptr,
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoSavedSettings);
+
+    float marcScale = 0.6f;
+    ImVec2 marcSize(display_w * marcScale, display_h * marcScale);
+    ImVec2 marcPos((display_w - marcSize.x) * 0.5f, (display_h - marcSize.y) * 0.5f);
+
+    ImGui::GetBackgroundDrawList()->AddImage(
+        (ImTextureID)(intptr_t)texMarcSimbols,
+        marcPos,
+        ImVec2(marcPos.x + marcSize.x, marcPos.y + marcSize.y));
+
+    float simbolWidth = marcSize.x * 0.13f;
+    float simbolHeight = simbolWidth * 1.28f;
+    ImVec2 simbolSize(simbolWidth, simbolHeight);
+
+    float spacing = simbolWidth * 0.15f;
+
+    float totalWidth = 4 * simbolSize.x + 3 * spacing;
+    float startX = marcPos.x + (marcSize.x - totalWidth) * 0.5f;
+    float startY = marcPos.y + (marcSize.y - simbolSize.y) * 0.4f;
+
+    ImGui::SetCursorPos(ImVec2(startX, startY));
+
+    for (int i = 0; i < 4; i++)
+    {
+        ImGui::BeginGroup();
+
+        // --- Fletxa amunt ---
+        ImGui::PushID(i * 10);
+        if (ArrowButtonWithSound("up", ImGuiDir_Up))
+            numActual[i] = (numActual[i] + 1) % 10;
+        ImGui::PopID();
+
+        // --- Imatge del número actual ---
+        int idx = numActual[i];
+        ImGui::Image((void*)(intptr_t)simbol_textures[idx], simbolSize);
+
+        // --- Fletxa avall ---
+        ImGui::PushID(i * 10 + 1);
+        if (ArrowButtonWithSound("down", ImGuiDir_Down))
+            numActual[i] = (numActual[i] - 1 + 10) % 10;
+        ImGui::PopID();
+
+        ImGui::EndGroup();
+
+        if (i < 3)
+            ImGui::SameLine(0.0f, spacing);
+    }
+
+    // --- Comprovació ---
+    if (numActual == numFinalSolucio)
+    {
+        PlaySoundOnce(ID_CHEST);
+        PlaySoundOnce(ID_ITEM);
+        joc_simbolsFinal_finalitzat = true;
+        cofre_final_on = false;
+    }
+
+    ImGui::PopStyleColor(3);
+    ImGui::End();
+}
+

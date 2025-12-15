@@ -5,6 +5,11 @@ out vec4 FragColor;
 uniform sampler2D uScene;
 uniform float uStrength = 1.5;
 
+// NUEVO: color del borde (negro por defecto)
+uniform vec3  uEdgeColor = vec3(0.0, 0.0, 0.0);
+// NUEVO: multiplicador general de alpha (por si quieres "blend")
+uniform float uAlphaMul  = 1.0;
+
 float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
 
 void main(){
@@ -15,7 +20,6 @@ void main(){
     float t  = lum(texture(uScene, vUV + texel*vec2( 0,-1)).rgb);
     float tr = lum(texture(uScene, vUV + texel*vec2( 1,-1)).rgb);
     float l  = lum(texture(uScene, vUV + texel*vec2(-1, 0)).rgb);
-    float c  = lum(texture(uScene, vUV).rgb);
     float r  = lum(texture(uScene, vUV + texel*vec2( 1, 0)).rgb);
     float bl = lum(texture(uScene, vUV + texel*vec2(-1, 1)).rgb);
     float b  = lum(texture(uScene, vUV + texel*vec2( 0, 1)).rgb);
@@ -25,8 +29,8 @@ void main(){
     float gy = -tl - 2.0*t - tr + bl + 2.0*b + br;
     float mag = sqrt(gx*gx + gy*gy);
 
-    float edge = clamp(mag * uStrength, 0.0, 1.0);
+    float edge = clamp(mag * uStrength, 0.0, 1.0) * uAlphaMul;
 
-    // negre amb alpha = edge  -> Es barrejarà assobre de l'escena
-    FragColor = vec4(0.0, 0.0, 0.0, edge);
+    // Color configurable con alpha=edge
+    FragColor = vec4(uEdgeColor, edge);
 }

@@ -1,0 +1,171 @@
+﻿// ─────────────────────────────────────────────────────────────────────────────
+// Col·lisions OBB:
+// ─────────────────────────────────────────────────────────────────────────────
+
+#include "stdafx.h"
+#include "collisions.h"
+#include "constants.h"
+
+OBB PropToOBB(const Prop& p)
+{
+	OBB box;
+	box.center = glm::vec3(p.M[3]);
+
+	// Columns contain rotation*scale. Extract their lengths (scales)
+	glm::vec3 col0 = glm::vec3(p.M[0]);
+	glm::vec3 col1 = glm::vec3(p.M[1]);
+	glm::vec3 col2 = glm::vec3(p.M[2]);
+
+	// halfSize = length * 0.5
+	box.halfSize = glm::vec3(glm::length(col0) * 0.5f,
+		glm::length(col1) * 0.5f,
+		glm::length(col2) * 0.5f);
+
+	// orientation: normalized axes (handle possible degenerate cases)
+	glm::vec3 ux = glm::length(col0) > 1e-8f ? col0 / glm::length(col0) : glm::vec3(1, 0, 0);
+	glm::vec3 uy = glm::length(col1) > 1e-8f ? col1 / glm::length(col1) : glm::vec3(0, 1, 0);
+	glm::vec3 uz = glm::length(col2) > 1e-8f ? col2 / glm::length(col2) : glm::vec3(0, 0, 1);
+
+	// Optionally orthonormalize (Gram-Schmidt) to be safe:
+	ux = glm::normalize(ux);
+	uy = glm::normalize(uy - ux * glm::dot(ux, uy));
+	uz = glm::normalize(glm::cross(ux, uy));
+	box.orientation = glm::mat3(ux, uy, uz);
+
+	return box;
+}
+
+// --- Deslizarse a lo largo de objetos
+
+bool ResolveCapsuleOBBSlidingCollision(Capsule& cap, const OBB* box)
+{
+	glm::vec3 a = glm::transpose(box->orientation) * (cap.p0 - box->center);
+	glm::vec3 b = glm::transpose(box->orientation) * (cap.p1 - box->center);
+
+	glm::vec3 closestOnSegment, closestOnBox;
+	float minDist2 = ClosestPtSegmentOBB_Analytic(a, b, box->halfSize, closestOnSegment, closestOnBox);
+
+	float dist = glm::sqrt(minDist2);
+	float penetration = cap.radius - dist;
+	if (penetration <= 0.0f)
+		return false;
+
+	glm::vec3 normalLocal = dist > 1e-5f
+		? glm::normalize(closestOnSegment - closestOnBox)
+		: glm::vec3(0, 1, 0);
+	glm::vec3 normalWorld = glm::normalize(box->orientation * normalLocal);
+
+	// Adjust normal for sliding (reduce vertical push)
+	glm::vec3 up(0, 1, 0);
+	float slope = glm::dot(normalWorld, up);
+	if (slope > 0.3f) {
+		normalWorld = glm::normalize(glm::mix(normalWorld, up, 0.5f));
+	}
+
+	glm::vec3 correction = normalWorld * penetration;
+	cap.p0 += correction;
+	cap.p1 += correction;
+
+	return true;
+}
+
+void CheckPlayerSlidingCollisionNew(glm::vec3 nextPos, const float radius,
+	glm::vec3& currentPos, float eyesHeight,
+	std::vector<COBJModel*> vHitboxOBJ)
+{
+	Capsule playerCap;
+	float playerHeight = eyesHeight + 0.1f;
+	playerCap.p0 = nextPos + glm::vec3(0, -playerHeight * 0.5f + radius, 0); // bottom
+	playerCap.p1 = nextPos + glm::vec3(0, playerHeight * 0.5f - radius, 0); // top
+	playerCap.radius = radius;
+
+	glm::vec3 totalCorrection(0.0f);
+	glm::vec3 totalSlideDir = glm::vec3(0.0f);
+
+	const int MAX_ITERS = 3;
+	for (int iter = 0; iter < MAX_ITERS; ++iter) {
+		bool collided = false;
+		glm::vec3 accumulatedNormal(0.0f);
+
+		for (COBJModel* hitbox : vHitboxOBJ) {
+			if(hitbox->isHitboxActive())
+			{
+				glm::vec3 beforeP0 = playerCap.p0;
+				glm::vec3 beforeP1 = playerCap.p1;
+
+				bool collidedThis = ResolveCapsuleOBBSlidingCollision(playerCap, hitbox->getOBB());
+				if (collidedThis) {
+					collided = true;
+
+					glm::vec3 correction = (playerCap.p0 - beforeP0); // movement done by Resolve()
+					accumulatedNormal += glm::normalize(correction);
+				}
+			}
+
+		}
+
+		if (!collided)
+			break; // no more penetrations
+
+		// Average contact normal
+		if (glm::length2(accumulatedNormal) > 0.0f)
+			accumulatedNormal = glm::normalize(accumulatedNormal);
+
+		// Project the remaining motion along the collision plane
+		glm::vec3 up(0, 1, 0);
+		glm::vec3 move = nextPos - currentPos;
+		float pushOut = glm::dot(move, accumulatedNormal);
+		move -= pushOut * accumulatedNormal;
+
+		// Update capsule segment
+		glm::vec3 offset = move * 0.5f;
+		playerCap.p0 = currentPos + offset + glm::vec3(0, -playerHeight * 0.5f + radius, 0);
+		playerCap.p1 = currentPos + offset + glm::vec3(0, playerHeight * 0.5f - radius, 0);
+	}
+
+	currentPos = 0.5f * (playerCap.p0 + playerCap.p1);
+}
+
+float ClosestPtSegmentOBB_Analytic(
+	const glm::vec3& a,
+	const glm::vec3& b,
+	const glm::vec3& e,
+	glm::vec3& outSeg,
+	glm::vec3& outBox)
+{
+	glm::vec3 d = b - a; // segment direction
+	float segLen2 = glm::dot(d, d);
+	if (segLen2 < 1e-8f) {
+		// Degenerate segment — use single point
+		outSeg = a;
+		outBox = glm::clamp(a, -e, e);
+		return glm::length2(outSeg - outBox);
+	}
+
+	// Start with unclamped t (param along segment)
+	float t = 0.0f;
+	glm::vec3 p = a;
+
+	// Iterative clamping for each axis — very cheap
+	for (int iter = 0; iter < 2; ++iter) {
+		// Clamp point p to box
+		glm::vec3 q = glm::clamp(p, -e, e);
+
+		// Compute projection of vector (q - a) onto segment
+		float tNew = glm::dot(q - a, d) / segLen2;
+		tNew = glm::clamp(tNew, 0.0f, 1.0f);
+
+		if (fabs(tNew - t) < 1e-4f) {
+			// Converged
+			outSeg = a + d * tNew;
+			outBox = q;
+			return glm::length2(outSeg - outBox);
+		}
+		t = tNew;
+		p = a + d * t;
+	}
+
+	outSeg = a + d * t;
+	outBox = glm::clamp(outSeg, -e, e);
+	return glm::length2(outSeg - outBox);
+}

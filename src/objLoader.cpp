@@ -50,6 +50,7 @@ int g_ObjetoInspeccionado = -1;
 
 _stdcall COBJModel::COBJModel()
 {
+	hitboxActive = true;
 	hitbox = false;
 	render = true;
 	AABBhitbox = nullptr;
@@ -329,7 +330,7 @@ void ComputeOBBForWalls(Vector3D* vertices, unsigned int vertexCount, OBB* obb)
 	}
 }
 
-void loadObjPaths(const std::string& folder, std::vector<std::string> &paths)
+void loadObjPaths(const std::string& folder, std::vector<std::string>& paths)
 {
 	// Pattern: folder/*.obj
 	std::string searchPattern = folder + "/*.obj";
@@ -449,7 +450,7 @@ int _stdcall COBJModel::LoadModel(char* szFileName)
 		return errno; //FALSE;
 
 	// Confirm if it's a hitbox
-	if (strstr(szFileName, "HITBOX") != nullptr) 
+	if (strstr(szFileName, "HITBOX") != nullptr)
 	{
 		this->setAsHitbox();
 	}
@@ -1483,13 +1484,37 @@ void _stdcall COBJModel::UseMaterial(const Material* pMaterial)
 
 void _stdcall COBJModel::UseMaterial_ShaderID(GLuint sh_programID, Material pMaterial)
 {
-	////////////////////////////////////////////////////////////////////////
-	// Make a given material the current one
-	////////////////////////////////////////////////////////////////////////
+	// ─────────────────────────────────────────────────────────────────────────────
+	// OPTIMIZACIÓN RENDIMIENTO: CACHE DE UNIFORMS (Variables STATIC)
+	// Guardamos las IDs aquí para no llamar a glGetUniformLocation miles de veces.
+	// ─────────────────────────────────────────────────────────────────────────────
+	static GLint locTex0 = -1;
+
+	static GLint locAmb = -1;
+	static GLint locDif = -1;
+	static GLint locSpec = -1;
+	static GLint locShin = -1;
+
+	// Variable para saber si ha cambiado el shader desde la última vez
+	static GLuint lastShader = 0;
+
+	// Solo si cambiamos de shader (o es la primera vez), buscamos las locations.
+	// El resto del tiempo (el 99.9%), nos saltamos este bloque pesado.
+	if (sh_programID != lastShader)
+	{
+		locTex0 = glGetUniformLocation(sh_programID, "texture0");
+
+		locAmb = glGetUniformLocation(sh_programID, "material.ambient");
+		locDif = glGetUniformLocation(sh_programID, "material.diffuse");
+		locSpec = glGetUniformLocation(sh_programID, "material.specular");
+		locShin = glGetUniformLocation(sh_programID, "material.shininess");
+
+		lastShader = sh_programID;
+	}
+
 	float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-	//glColor3f(1.0,1.0,1.0);
-// Look for the presence of a texture and activate texturing if succeed
+	// Chequeo rápido si hay material válido
 	if (pMaterial.szName != "")
 	{
 		//glUniform4i(glGetUniformLocation(sh_programID, "sw_intensity"), false, true, true, true);

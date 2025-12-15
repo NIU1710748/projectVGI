@@ -20,7 +20,7 @@
 extern COBJModel* g_MatapatosGavina;
 
 
-
+extern std::string g_SobelOnlyName;
 extern bool  g_ObraDinnOn;
 extern float g_UmbralObraDinn;
 extern float g_DitherAmp;
@@ -149,6 +149,10 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 	//		return; // o bé dibuixa l'escena normal, com vulguis
 	//	}
 
+		//ModelMatrix = MatriuTG;
+		//glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
+		//NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
+		//glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
 
 	//	SeleccionaColorMaterial(sh_programID, col_object, sw_mat);
 
@@ -197,71 +201,104 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 			}
 			else
 			{
-				// No dibuixem la gavina “de decoració”: aquest model l'usa el minijoc
-				if (objecteOBJ == g_MatapatosGavina)
+			// No dibuixem la gavina “de decoració”: aquest model l'usa el minijoc
+			if (objecteOBJ == g_MatapatosGavina)
+				continue;
+
+			// --- SOLO en pasada de máscara: si hay "target", dibujamos solo ese ---
+			if (g_SobelMaskPass && !g_SobelOnlyName.empty())
+			{
+				if (objecteOBJ->getName() != g_SobelOnlyName)
 					continue;
-
-				if (objecteOBJ->getName() == "Moby_Raw_Model.obj")
-				{
-					// Saltamos este objecte → no es dibuixa
-					continue;
-				}
-
-				if (objecteOBJ->getName() == "patoso.obj")
-				{
-					// Saltamos este objecte → no es dibuixa
-					continue;
-				}
-
-				if (objecteOBJ->getName() == "ducki.obj")
-				{
-					// Saltamos este objecte → no es dibuixa
-					continue;
-				}
-
-				if (objecteOBJ->getName() == "INTERACTUABLE_espada_gir.obj")
-				{
-					// Saltamos este objecte → no es dibuixa
-					continue;
-				}
-
-				if (objecteOBJ->getName() == "INTERACTUABLE_ancla_gir.obj")
-				{
-					// Saltamos este objecte → no es dibuixa
-					continue;
-				}
-
-				if (objecteOBJ->getName() == "INTERACTUABLE_calavera_gir.obj")
-				{
-					// Saltamos este objecte → no es dibuixa
-					continue;
-				}
-
-				if (objecteOBJ->getName() == "INTERACTUABLE_botella_gir.obj")
-				{
-					// Saltamos este objecte → no es dibuixa
-					continue;
-				}
-
-				if (objecteOBJ->getName() == "INTERACTUABLE_barril_gir.obj")
-				{
-					// Saltamos este objecte → no es dibuixa
-					continue;
-				}
-
-				// Pas ModelView Matrix a shader
-				ModelMatrix = objecteOBJ->modelMatrix();  // DIFFERENT PER OBJECT
-				glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
-
-				NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
-				// Pas NormalMatrix a shader
-				glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
-
-				objecteOBJ->draw_TriVAO_OBJ(sh_programID);	// Dibuixar VAO a pantalla
 			}
+
+
+			if (objecteOBJ->getName() == "Moby_Raw_Model.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "patoso.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "ducki.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "INTERACTUABLE_espada_gir.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "INTERACTUABLE_ancla_gir.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "INTERACTUABLE_calavera_gir.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "INTERACTUABLE_botella_gir.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "INTERACTUABLE_barril_gir.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "INTERACTUABLE_pala_gir.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "INTERACTUABLE_bomba_gir.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+			if (objecteOBJ->getName() == "INTERACTUABLE_hacha_gir.obj")
+			{
+				// Saltamos este objecte → no es dibuixa
+				continue;
+			}
+
+
+			// Pas ModelView Matrix a shader
+			ModelMatrix = objecteOBJ->modelMatrix();  // DIFFERENT PER OBJECT
+			glUniformMatrix4fv(glGetUniformLocation(sh_programID, "modelMatrix"), 1, GL_FALSE, &ModelMatrix[0][0]);
+
+			NormalMatrix = transpose(inverse(MatriuVista * ModelMatrix));
+			// Pas NormalMatrix a shader
+			glUniformMatrix4fv(glGetUniformLocation(sh_programID, "normalMatrix"), 1, GL_FALSE, &NormalMatrix[0][0]);
+
+			const bool esBarca = (objecteOBJ->getName() == "barca_huida.obj"); // pon el nombre exacto
+			glUniform1i(
+				glGetUniformLocation(sh_programID, "uSobelTargetObj"),
+				(g_SobelMaskPass&& esBarca) ? GL_TRUE : GL_FALSE
+			);
+
+
+			objecteOBJ->draw_TriVAO_OBJ(sh_programID);	// Dibuixar VAO a pantalla
 		}
 
-	//}
+	}
 
 	
 	//INTRO - Motivació Referents Objetctius (un general que compengui tot el prijecte) Caraceristiques del projecte (camara, estil etc) - Eines que hem fet (chatgpt) 
@@ -278,7 +315,7 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 
 
 // dibuixa: Funció que dibuixa objectes simples de la llibreria GLUT segons obj
-void dibuixa(GLuint sh_programID, char obj, glm::mat4 MatriuVista, glm::mat4 MatriuTG)
+void dibuixa(GLuint sh_programID, char obj, glm::mat4 MatriuVista, glm::mat4 MatriuTG) 
 {
 //	std::string String;
 //	const char* string;

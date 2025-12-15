@@ -47,28 +47,30 @@ struct Face
 {
 	unsigned int	iNumVertices;
 	unsigned int	iMaterialIndex;
-	Vector3D		*pVertices;
-	Vector3D		*pNormals;
-	Vector2D		*pTexCoords;
+	Vector3D* pVertices;
+	Vector3D* pNormals;
+	Vector2D* pTexCoords;
 };
 
 struct Material
 {
-  char	szName[1024];		 // Name of the material
-  char	szTexture[_MAX_PATH];// Filename of the texture
-  uint	iTextureID;			 // OpenGL name of the texture
-  float fDiffuse[3];		 // Diffuse component
-  float fAmbient[3];		 // Ambient component
-  float fSpecular[3];		 // Specular component
-  float fEmmissive[3];		 // Emmissive component
-  float fShininess;			 // Specular exponent
+	char	szName[1024];		 // Name of the material
+	char	szTexture[_MAX_PATH];// Filename of the texture
+	uint	iTextureID;			 // OpenGL name of the texture
+	float fDiffuse[3];		 // Diffuse component
+	float fAmbient[3];		 // Ambient component
+	float fSpecular[3];		 // Specular component
+	float fEmmissive[3];		 // Emmissive component
+	float fShininess;			 // Specular exponent
 };
 
-class OBJLOADER_CLASS_DECL COBJModel  
+class OBJLOADER_CLASS_DECL COBJModel
 {
-  public:
+public:
+	bool isHitboxActive() const { return hitboxActive; };
 	bool isHitbox() const { return hitbox; };
-	void setAsHitbox() { hitbox = true; };
+	void setHitboxActive(bool hitboxState) { hitboxActive = hitboxState; };
+	void setAsHitbox(bool hit = true) { hitbox = hit; };
 	AABB* getAABB() const { return AABBhitbox; };
 	OBB* getOBB() const { return OBBhitbox; };
 	bool isRendering() const { return render; };
@@ -85,13 +87,13 @@ class OBJLOADER_CLASS_DECL COBJModel
 	virtual _stdcall ~COBJModel();
 	void _stdcall EliminaLlista(int prim_Id);
 
-// Funcions CVAO
+	// Funcions CVAO
 	void _stdcall netejaVAOList_OBJ();
 	void _stdcall netejaTextures_OBJ();
 	void _stdcall draw_TriVAO_OBJ(GLuint sh_programID);
 
 
-// Get transformation matrix for the object
+	// Get transformation matrix for the object
 	glm::mat4 modelMatrix() const {
 		glm::mat4 M(1.0f);
 		M = glm::translate(M, position);
@@ -110,27 +112,27 @@ class OBJLOADER_CLASS_DECL COBJModel
 	void move(float Xf, float Yf, float Zf) { position += glm::vec3(Xf, Yf, Zf); };
 
 private:
-	void _stdcall ReadNextString(char szString[], FILE *hStream);
-//	  int _stdcall LoadTexture(const char szFileName[_MAX_PATH]);
-	  int _stdcall LoadTexture2(const char szFileName[_MAX_PATH]);
-	  void _stdcall UseMaterial(const Material *pMaterial);
-	  void _stdcall UseMaterial_ShaderID(GLuint sh_programID, Material pMaterial);
-	  void _stdcall GetTokenParameter(char szString[], const unsigned int iStrSize, FILE *hFile);
-	  void _stdcall MakePath(char szFileAndPath[]);
-	  bool _stdcall LoadMaterialLib(const char szFileName[], Material *pMaterials,
-				unsigned int *iCurMaterialIndex, char szBasePath[]);
+	void _stdcall ReadNextString(char szString[], FILE* hStream);
+	//	  int _stdcall LoadTexture(const char szFileName[_MAX_PATH]);
+	int _stdcall LoadTexture2(const char szFileName[_MAX_PATH]);
+	void _stdcall UseMaterial(const Material* pMaterial);
+	void _stdcall UseMaterial_ShaderID(GLuint sh_programID, Material pMaterial);
+	void _stdcall GetTokenParameter(char szString[], const unsigned int iStrSize, FILE* hFile);
+	void _stdcall MakePath(char szFileAndPath[]);
+	bool _stdcall LoadMaterialLib(const char szFileName[], Material* pMaterials,
+		unsigned int* iCurMaterialIndex, char szBasePath[]);
 	CVAO _stdcall RenderToVAOList(const Face* pFaces, const unsigned int iFaceCount,
-				const Material *pMaterials);
+		const Material* pMaterials);
 	void _stdcall loadToVAOList(const Face* pFaces, const unsigned int iFaceCount,
-				const Material* pMaterials);
-	void _stdcall GetFaceNormal(float fNormalOut[3], const Face *pFace);
-	void _stdcall ParseFaceString(char szFaceString[], Face *FaceOut, const Vector3D *pVertices,
-			  const Vector3D *pNormals, const Vector2D *pTexCoords, const unsigned int iMaterialIndex);
-	void _stdcall GetFileInfo(FILE *hStream, OBJFileInfo *Stat, const char szConstBasePath[]);
- 	void _stdcall GenTexCoords();
+		const Material* pMaterials);
+	void _stdcall GetFaceNormal(float fNormalOut[3], const Face* pFace);
+	void _stdcall ParseFaceString(char szFaceString[], Face* FaceOut, const Vector3D* pVertices,
+		const Vector3D* pNormals, const Vector2D* pTexCoords, const unsigned int iMaterialIndex);
+	void _stdcall GetFileInfo(FILE* hStream, OBJFileInfo* Stat, const char szConstBasePath[]);
+	void _stdcall GenTexCoords();
 
 
-// CVAO
+	// CVAO
 	GLint numMaterials = 0;
 	int vector_Materials[MAX_SIZE_VAOLIST];
 	CVAO VAOList_OBJ[MAX_SIZE_VAOLIST];
@@ -139,6 +141,7 @@ private:
 	OBB* OBBhitbox;
 	OBB* worldOBB;
 	bool hitbox;
+	bool hitboxActive;
 	bool render;
 	std::string name;
 
@@ -149,7 +152,7 @@ private:
 
 	//glm::vec3 center;
 
-	
+
 
 // Funcions CVAO
 	void _stdcall initVAOList_OBJ();
@@ -163,12 +166,12 @@ void loadObjPaths(const std::string& folder, std::vector<std::string>& paths);
 void loadObjPathsRec(const std::string& folder, std::vector<std::pair<std::string, std::string>>& paths); // Recursive version. Loads subfolders too
 
 // Callback function for comparing two faces with qsort
-static int CompareFaceByMaterial(const void *Arg1, const void *Arg2);
+static int CompareFaceByMaterial(const void* Arg1, const void* Arg2);
 
 //Returns a newly created COBJModel object. 
 OBJLOADER_CLASS_DECL COBJModel* _stdcall InitObject();
 
 //Destroys a COBJModel object
-OBJLOADER_CLASS_DECL void _stdcall UnInitObject(COBJModel *obj);
+OBJLOADER_CLASS_DECL void _stdcall UnInitObject(COBJModel* obj);
 
 #endif // !defined(AFX_OBJMODEL_H__32C5F722_AD3D_11D1_8F4D_E0B57CC10800__INCLUDED_)
