@@ -3832,6 +3832,7 @@ void OnPaint(GLFWwindow* window)
 	glClearColor(c_fons.r, c_fons.g, c_fons.b, 1.0f);   // Normal
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 	g_SobelMaskPass = false;
 	glUseProgram(shader_programID);
 
@@ -3938,6 +3939,8 @@ void OnPaint(GLFWwindow* window)
 
 		configura_Escena();
 		dibuixa_Escena();
+
+
 
 		// Desactiva màscara
 		g_SobelMaskPass = false;
@@ -7461,7 +7464,7 @@ void HandleEscapeKey(GLFWwindow* window)
 	// (Opcional: podries fer aquí que ESC tanqui l'inventari, si vols)
 
 	// 2) Toggle GAME <-> MENU
-	if ((act_state == GameState::GAME || act_state == GameState::INSPECTING))
+	if (act_state == GameState::GAME)
 	{
 		act_state = GameState::MENU;
 		FPV_SetMouseCapture(false);
@@ -7555,7 +7558,7 @@ void UpdateGamepadActions(GLFWwindow* window)
 		return;
 
 	// Només té sentit la majoria de coses en mode joc
-	if ((act_state == GameState::GAME || act_state == GameState::INSPECTING))
+	if (act_state == GameState::GAME)
 	{
 		// X → Interactuar (E)
 		bool xJustPressed = (g_Pad.btnX && !g_PadPrev.btnX);
@@ -7627,7 +7630,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 	// ─────────────────────────────────────────────────────────────────
 	// Gestió específica quan estem al joc (GameState::GAME)
 	// ─────────────────────────────────────────────────────────────────
-	if ((act_state == GameState::GAME || act_state == GameState::INSPECTING))
+	if (act_state == GameState::GAME)
 	{
 		// Bloqueja els shortcuts Shift+W/A/S/D quan estem en FPV
 		if ((action == GLFW_PRESS || action == GLFW_REPEAT) && g_FPV && (mods & GLFW_MOD_SHIFT)) {
@@ -11145,7 +11148,7 @@ int main(void)
 				InitHandQuad();
 				renderLoading(window, 0.2f);
 
-				InitHandAnimations();
+				//InitHandAnimations();
 				renderLoading(window, 0.4f);
 
 				ApplyPhongObraDinnDefaults();
