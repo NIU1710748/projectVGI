@@ -151,14 +151,14 @@ glm::vec3 g_DestZonaTimoASuperior(-4.81f, 8.70f, -5.94f);
 bool      g_UsePadMouse = false;             // si el gamepad controla el cursor
 glm::vec2 g_PadMousePos = glm::vec2(0.0f);   // posició en píxels finestra
 float     g_PadMouseSpeed = 400.0f;            // píxels/segon amb stick a tope
-float     g_PadMouseDeadzone = 0.25f;             // deadzone per al stick dret
+float     g_PadMouseDeadzone = 0.25f;             // deadzone per al stick dreta
 
 
 GamepadState g_Pad{};
 GamepadState g_PadPrev{};
 
 static inline const char* BtnInteract() { return (g_Pad.connected) ? "X" : "E"; }
-static inline const char* BtnInspect() { return (g_Pad.connected) ? "X" : "G"; }
+static inline const char* BtnInspect() { return (g_Pad.connected) ? "RB" : "G"; }
 static inline const char* BtnInventory() { return (g_Pad.connected) ? "Y" : "I"; }
 static inline const char* BtnFlashlight() { return (g_Pad.connected) ? "LB" : "F"; }
 
@@ -173,6 +173,12 @@ bool g_CrosshairEnabled = true;
 // ─────────────────────────────────────────────────────────────────────────────
 static void CreateTestSceneProps();
 static void ClearProps();
+
+// INSPECCIÓ (mando)
+bool  g_InspectPadHold = false;   // false = rota siempre con stick; true = solo si mantienes A
+float g_InspectPadRotSpeed = 2.4f; // rad/s aprox (ajusta a gusto)
+float g_InspectPadDeadzone = 0.20f;
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 /* Estat/flags externs del postproc. (definits en un altre mòdul) */
@@ -541,6 +547,70 @@ enum class EndgameState {
 	BLACK
 };
 
+// INSPECCIÓ - paràmetres mando
+float g_InspectYawSpeed = 140.0f;  // deg/s
+float g_InspectPitchSpeed = 110.0f;  // deg/s
+float g_InspectZoomSpeed = 25.0f;   // R-units/s
+float g_InspectRMin = 1.0f;
+float g_InspectRMax = 120.0f;        // <-- sube esto (o ponlo enorme)
+
+
+
+static inline float DZ(float v, float dz) { return (fabsf(v) < dz) ? 0.0f : v; }
+
+void UpdateInspectionGamepadOrbit()
+{
+	if (!g_Inspecciona) return;
+	if (!g_Pad.connected) return;
+
+	// dt
+	float dt = dt_real;
+	if (dt <= 0.0f) {
+		float imguiDt = ImGui::GetIO().DeltaTime;
+		dt = (imguiDt > 0.0f) ? imguiDt : (1.0f / 60.0f);
+	}
+
+	// ===== TUNING (toca esto a gusto) =====
+	const float deadzone = 0.20f;
+
+	const float yawSpeed = 140.0f;  // deg/s  (stick derecho X)
+	const float pitchSpeed = 110.0f;  // deg/s  (stick derecho Y)
+
+	const float zoomSpeed = 10.0f;   // R units/s (stick izquierdo Y)
+	const float Rmin = 1.0f;
+	const float Rmax = 120.0f;  // <-- sube esto si notas “tope” al zoom-out
+
+	const float maxPitch = 85.0f;   // límite para no hacer volteretas
+	// =====================================
+
+	// Sticks
+	float rx = DZ(g_Pad.rx, deadzone);
+	float ry = DZ(g_Pad.ry, deadzone);
+	float ly = DZ(g_Pad.ly, deadzone);
+
+	// ---- Rotación (OPV usa GRADOS) ----
+	// Horizontal (stick derecho X) -> beta
+	OPV.beta += rx * yawSpeed * dt;
+
+	// Vertical (stick derecho Y) -> alfa
+	// (negativo para que "arriba" sea inclinar hacia arriba; si lo quieres al revés quita el -)
+	OPV.alfa += (-ry) * pitchSpeed * dt;
+
+	// Clamp vertical
+	OPV.alfa = glm::clamp((float)OPV.alfa, -maxPitch, maxPitch);
+
+	// (Opcional) wrap horizontal para que no crezca infinito
+	if (OPV.beta > 180.0f) OPV.beta -= 360.0f;
+	if (OPV.beta < -180.0f) OPV.beta += 360.0f;
+
+	// ---- Zoom (stick izquierdo Y) ----
+	// tu ly: arriba suele ser negativo -> reduce R -> zoom in (acercas)
+	OPV.R += ly * zoomSpeed * dt;
+	OPV.R = glm::clamp((float)OPV.R, Rmin, Rmax);
+}
+
+
+
 enum class EscapeAnimState { NONE = 0, CELEBRATING };
 static EscapeAnimState g_EscapeAnimState = EscapeAnimState::NONE;
 static const int ESCAPE_CELEBRATE_ANIM = 4; // tu anim de celebrar
@@ -615,6 +685,7 @@ static std::string g_SobelNomHighlight; // <-- ya lo estás usando en OnPaint
 
 void UpdatePadMouseForImGui(GLFWwindow* window)
 {
+	//if (g_Inspecciona) return;
 	if (!g_UsePadMouse)   return;
 	if (!g_Pad.connected) return;
 
@@ -2867,7 +2938,7 @@ void InitMatapatos()
 			obj.posicioActual = obj.posicioBase;
 			obj.mida = glm::vec3(0.3f, 0.3f, 0.05f);  // cub petit
 			obj.fase = (float)(i * 0.7 + j * 0.4);
-			obj.velocitat = 1.0f + 0.3f * (float)(i + j);
+			obj.velocitat = 0.6f + 0.15f * (float)(i + j);
 			obj.viu = true;
 
 			g_ObjectiusMatapatos.push_back(obj);
@@ -4345,7 +4416,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 			CheckPlayerSlidingCollisionNew(nextPos, FPV_RADIUS, g_FPVPos, g_playerHeight, vHitboxOBJ);
 	}
 
-	// ── Pasos (tu sistema complet) ─────────────────────────────────────────
+	// ── Pasos (sistema complet) ─────────────────────────────────────────
 
 
 	{
@@ -4799,25 +4870,35 @@ void UpdateGamepadActions(GLFWwindow* window);
 
 void UpdateInspectionInput(GLFWwindow* window, float dt)
 {
-	// --- ZOOM (Teclas W/S simulando rueda) ---
+	// -------------------------------------------------
+	// ZOOM (Teclas W / S simulando rueda del ratón)
+	// -------------------------------------------------
 	// Ajusta la velocidad (10.0f) a tu gusto
-	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) g_InspectZoom -= 10.0f * dt;
-	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) g_InspectZoom += 10.0f * dt;
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		g_InspectZoom -= 10.0f * dt;
+
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		g_InspectZoom += 10.0f * dt;
 
 	// Límites del zoom para no atravesar el objeto ni irse al infinito
-	if (g_InspectZoom < 1.0f) g_InspectZoom = 1.0f;
+	if (g_InspectZoom < 1.0f)  g_InspectZoom = 1.0f;
 	if (g_InspectZoom > 30.0f) g_InspectZoom = 30.0f;
 
-	// --- ROTACIÓN (Click Izquierdo + Arrastrar) ---
+	// -------------------------------------------------
+	// ROTACIÓN (Click izquierdo + arrastrar)
+	// -------------------------------------------------
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
 
-	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-		if (!g_Dragging) {
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+	{
+		if (!g_Dragging)
+		{
 			g_Dragging = true;
 			g_LastMouseX = xpos;
 			g_LastMouseY = ypos;
 		}
+
 		// Sensibilidad del ratón
 		float sensitivity = 0.01f;
 		float dx = float(xpos - g_LastMouseX);
@@ -4826,56 +4907,99 @@ void UpdateInspectionInput(GLFWwindow* window, float dt)
 		g_InspectRotX += dx * sensitivity;
 		g_InspectRotY += dy * sensitivity;
 	}
-	else {
+	else
+	{
 		g_Dragging = false;
 	}
+
 	g_LastMouseX = xpos;
 	g_LastMouseY = ypos;
+
+	if (g_Pad.connected)
+	{
+		// Si estás arrastrando con ratón, prioridad al ratón
+		if (!g_Dragging)
+		{
+			bool allow = !g_InspectPadHold || g_Pad.btnA; // si g_InspectPadHold=true -> requiere A
+
+			if (allow)
+			{
+				float rx = g_Pad.rx;
+				float ry = g_Pad.ry;
+
+				if (fabsf(rx) < g_InspectPadDeadzone) rx = 0.0f;
+				if (fabsf(ry) < g_InspectPadDeadzone) ry = 0.0f;
+
+				// Nota: invierto Y para que "arriba" en stick sea mirar hacia arriba (ajusta si lo quieres al revés)
+				g_InspectRotX += rx * g_InspectPadRotSpeed * dt;
+				g_InspectRotY += (-ry) * g_InspectPadRotSpeed * dt;
+
+				// (opcional) clamp para que no haga volteretas raras
+				g_InspectRotY = glm::clamp(g_InspectRotY, -1.4f, 1.4f); // ~[-80º, 80º]
 }
+		}
+
+	}
+}
+
 
 void dibuixa_Solo_Objeto()
 {
 	glUseProgram(shader_programID);
 
-	auto loc = [&](const char* n) { return glGetUniformLocation(shader_programID, n); };
+	auto loc = [&](const char* n)
+		{
+			return glGetUniformLocation(shader_programID, n);
+		};
 
+	// -------------------------------------------------
 	// 1. DESACTIVAR EFECTOS RAROS
+	// -------------------------------------------------
 	glUniform1i(loc("uObraDinnOn"), GL_FALSE);
 	glUniform1i(loc("textur"), GL_FALSE); // Pon TRUE si tu objeto tiene textura
 
-	// 2. MATERIAL DEL OBJETO (Base blanca neutra para que coja bien la luz)
+	// -------------------------------------------------
+	// 2. MATERIAL DEL OBJETO
+	// Base blanca neutra para que coja bien la luz
+	// -------------------------------------------------
 	glUniform1i(loc("sw_material"), GL_TRUE);
+
 	glUniform4f(loc("material.ambient"), 0.1f, 0.1f, 0.1f, 1.0f); // Poco ambiente propio
-	glUniform4f(loc("material.diffuse"), 0.9f, 0.9f, 0.9f, 1.0f); // Difusa alta (color base)
+	glUniform4f(loc("material.diffuse"), 0.9f, 0.9f, 0.9f, 1.0f); // Difusa alta
 	glUniform4f(loc("material.specular"), 0.8f, 0.8f, 0.8f, 1.0f); // Brillo fuerte
-	glUniform1f(loc("material.shininess"), 64.0f);                 // Brillo concentrado
+	glUniform1f(loc("material.shininess"), 64.0f);               // Brillo concentrado
 
-	// 3. ILUMINACIÓN "NATURAL" (Estilo Estudio / Sol)
+	// -------------------------------------------------
+	// 3. ILUMINACIÓN "NATURAL" (Estilo estudio / sol)
+	// -------------------------------------------------
 
-	// A) Luz Ambiental (Relleno): Un gris azulado suave (simula luz del cielo)
-	glUniform4f(loc("LightModelAmbient"), 0.3f, 0.3f, 0.4f, 1.0f);
+	// A) Luz ambiental (relleno, cielo)
+	glUniform4f(
+		loc("LightModelAmbient"),
+		0.3f, 0.3f, 0.4f, 1.0f
+	);
 
-	// B) Luz Difusa/Especular (El Sol): Un blanco cálido
-	// NOTA: Es posible que tu shader use 'light.diffuse' o 'gl_LightSource[0].diffuse'
-	// Intento usar nombres genéricos, si no va, revisa tu shader.
-	glUniform4f(loc("lightSource.diffuse"), 1.0f, 0.95f, 0.9f, 1.0f); // Luz cálida
-	glUniform4f(loc("lightSource.specular"), 1.0f, 1.0f, 1.0f, 1.0f);  // Reflejo blanco puro
+	// B) Luz difusa / especular (sol)
+	glUniform4f(
+		loc("lightSource.diffuse"),
+		1.0f, 0.95f, 0.9f, 1.0f
+	);
 
-	// C) POSICIÓN DE LA LUZ (CRUCIAL) 
+	glUniform4f(
+		loc("lightSource.specular"),
+		1.0f, 1.0f, 1.0f, 1.0f
+	);
 
-		// Definimos la luz en el "View Space" (relativa a la cámara).
-		// (10, 10, 10) significa que la luz viene de "arriba a la derecha y detrás" de la cámara.
-		// w = 0.0f indica que es una LUZ DIRECCIONAL (como el sol), no un punto.
+	// C) Posición de la luz (direccional)
 	glm::vec4 lightPos = glm::vec4(10.0f, 10.0f, 10.0f, 0.0f);
 	glUniform4fv(loc("lightPosition"), 1, glm::value_ptr(lightPos));
 
-	// Activar cálculo de luces (switches)
+	// Activar cálculo de luces
 	glUniform4i(loc("sw_intensity"), 1, 1, 1, 0);
 
-
-	// ─────────────────────────────────────────────────────────────
-	// MATRICES Y DIBUJO (Igual que antes)
-	// ─────────────────────────────────────────────────────────────
+	// -------------------------------------------------
+	// MATRICES Y DIBUJO
+	// -------------------------------------------------
 	glm::mat4 M = glm::mat4(1.0f);
 
 	// Rotación del objeto
@@ -4935,7 +5059,7 @@ void OnPaint(GLFWwindow* window, float dt)
 	ActualitzaAnimacioMans(dt);
 	ActualitzaMatapatos(dt);
 	UpdateGamepadActions(window); // Acciones de botones
-
+	UpdateInspectionInput(window, dt_real);
 	// 3. Estilo UI
 	if ((c_fons.r < 0.5f) || (c_fons.g < 0.5f) || (c_fons.b < 0.5f)) ImGui::StyleColorsLight();
 	else ImGui::StyleColorsDark();
@@ -5021,6 +5145,7 @@ void OnPaint(GLFWwindow* window, float dt)
 		}
 		else 
 		{
+			UpdateInspectionGamepadOrbit();
 			ViewMatrix = Vista_Esferica(shader_programID, OPV, Vis_Polar, pan, tr_cpv, tr_cpvF, c_fons, col_obj, objecte, mida, pas,
 				front_faces, oculta, test_vis, back_line,
 				ilumina, llum_ambient, llumGL, ifixe, ilum2sides,
@@ -9041,50 +9166,76 @@ void ToggleMapaPalanquesAmbMans(GLFWwindow* window)
 
 void UpdateGamepadActions(GLFWwindow* window)
 {
-	if (!g_Pad.connected) return;
+	// Si no hay mando, aun así dejamos el prev coherente
+	if (!g_Pad.connected) {
+		g_PadPrev = g_Pad;
+		return;
+	}
+
+	// Si estamos en endgame: igual que teclado -> solo “ESC” (a negro)
+	const bool bJustPressed = (g_Pad.btnB && !g_PadPrev.btnB);
+	const bool startJustPressed = (g_Pad.btnStart && !g_PadPrev.btnStart);
+	if (g_EndgameActive)
+	{
+		if (bJustPressed || startJustPressed)
+			g_EndgameState = EndgameState::BLACK;
+
+		g_PadPrev = g_Pad;
+		return;
+	}
 
 	if (act_state == GameState::GAME)
 	{
-		// X → Interactuar (E)
-		bool xJustPressed = (g_Pad.btnX && !g_PadPrev.btnX);
+		// =========================================================
+		// RB → "G" (modo inspección)  [SOLO RB]
+		// =========================================================
+		const bool rbJustPressed = (g_Pad.btnRB && !g_PadPrev.btnRB);
+		if (rbJustPressed)
+		{
+			OnKeyDown(window, GLFW_KEY_G, 0, GLFW_PRESS, 0);
+			g_PadPrev = g_Pad;
+			return; // no mezclar con X/Y/B/START este frame
+		}
+
+		// X → Interactuar
+		const bool xJustPressed = (g_Pad.btnX && !g_PadPrev.btnX);
 		if (xJustPressed)
 		{
-			// ✅ PRIORIDAD ABSOLUTA: si es barca, NO llames HandleInteract
-			if (g_InteraccioDisponible && g_InteraccioContext == TipusInteraccioContext::ESCAPAR_BARCA)
+			// PRIORIDAD ABSOLUTA: barca -> NO HandleInteract
+			if (g_InteraccioDisponible &&
+				g_InteraccioContext == TipusInteraccioContext::ESCAPAR_BARCA)
 			{
 				StartEscapeSequence_NoTP();
-				return; // importante: no proceses más acciones este frame
+				g_PadPrev = g_Pad;
+				return;
 			}
 
 			// resto de interacciones normales
 			HandleInteract(window);
 		}
 
-
-		// Y → Inventari (I)
-		bool yJustPressed = (g_Pad.btnY && !g_PadPrev.btnY);
+		// Y → Inventari
+		const bool yJustPressed = (g_Pad.btnY && !g_PadPrev.btnY);
 		if (yJustPressed)
 		{
 			HandleToggleInventory(window);
 		}
 
-		// B → back
-		bool bJustPressed = (g_Pad.btnB && !g_PadPrev.btnB);
+		// B → back (Matapatos o ESC)
 		if (bJustPressed)
 		{
 			if (g_EstatMatapatos != EstatMatapatos::OFF) AturaMatapatos();
 			else HandleEscapeKey(window);
 			}
 
-		// START → MENU <-> GAME
-		bool startJustPressed = (g_Pad.btnStart && !g_PadPrev.btnStart);
+		// START → ESC / MENU <-> GAME
 		if (startJustPressed)
 		{
 			HandleEscapeKey(window);
 		}
 
-		// LB → linterna ON/OFF
-		bool lbJustPressed = (g_Pad.btnLB && !g_PadPrev.btnLB);
+		// LB → linterna ON/OFF (solo FPV)
+		const bool lbJustPressed = (g_Pad.btnLB && !g_PadPrev.btnLB);
 		if (lbJustPressed && g_FPV)
 		{
 			ToggleFlashlightWithAnim();
@@ -9092,16 +9243,47 @@ void UpdateGamepadActions(GLFWwindow* window)
 	}
 	else if (act_state == GameState::MENU)
 	{
-		bool startJustPressed = (g_Pad.btnStart && !g_PadPrev.btnStart);
-		bool bJustPressed = (g_Pad.btnB && !g_PadPrev.btnB);
+		// START o B → volver al juego
 		if (startJustPressed || bJustPressed)
 		{
 			HandleEscapeKey(window);
 		}
 	}
+
+	// MUY IMPORTANTE: actualizar “prev” al final del frame
+	g_PadPrev = g_Pad;
 }
 
 
+
+static void ToggleModeInspeccio(GLFWwindow* window)
+{
+	// mismo “scope” que la tecla G
+	if (g_EndgameActive) return;
+	if (act_state != GameState::GAME) return;
+
+	//g_Inspecciona = !g_Inspecciona;
+
+	/*glUseProgram(shader_programID);
+	glUniform1i(glGetUniformLocation(shader_programID, "uInspecciona"),
+		g_Inspecciona ? GL_TRUE : GL_FALSE);
+	glUseProgram(0);*/
+
+	// lo que ya te funcionaba
+	//g_FPV = !g_FPV;
+
+	// (recomendado) ratón / movimiento coherente
+	/*if (g_Inspecciona) {
+		g_FVP_move = false;
+		FPV_SetMouseCapture(false);
+		if (window) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+	}
+	else {
+		g_FVP_move = true;
+		FPV_SetMouseCapture(true);
+		if (window) glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	}*/
+}
 
 
 
@@ -9653,6 +9835,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 		{
 			if (g_InspeccioDisponible)
 			{
+				ToggleModeInspeccio(window);
 				switch (g_InteraccioContext)
 				{
 				case TipusInteraccioContext::INSPECCIONAR_ANCLA:
