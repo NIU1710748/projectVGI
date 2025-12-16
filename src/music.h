@@ -26,6 +26,9 @@
 #define ID_LEVER L"fx_lever"
 #define ID_CLICK L"fx_click"
 #define ID_FINAL L"fx_final"
+#define ID_GADGET L"fx_gadget"
+#define ID_WOOD L"fx_wood"
+
 
 
 // --- VARIABLES GLOBALES DE VOLUMEN (Compartidas con ImGui) ---

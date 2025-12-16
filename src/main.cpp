@@ -367,6 +367,8 @@ const std::wstring MUSIC_2_FILE = L"../audio/ocean_sound.wav";
 const std::wstring LEVER_FILE = L"../audio/lever.wav";
 const std::wstring CLICK_FILE = L"../audio/click.wav";
 const std::wstring FINAL_FILE = L"../audio/final.wav";
+const std::wstring GADGET_FILE = L"../audio/gadget.wav";
+const std::wstring WOOD_FILE = L"../audio/wood.wav";
 
 float g_stepCooldown = 0.0f;
 
@@ -1048,6 +1050,9 @@ void StartHandAnimation(int id)
 
 	switch (id)
 	{
+	case 0:
+		PlaySoundOnce(ID_ITEM);
+		break;
 	case 2:
 		PlaySoundOnce(ID_GUN);
 		break;
@@ -5072,6 +5077,8 @@ void DibuixaJocPalanques()// PALANCAZZZ
 		}
 
 		StartHandAnimation(1);
+		PlaySoundOnce(ID_GADGET);
+		PlaySoundOnce(ID_CHEST);
 		g_CofreItemAfegitPalanques = true;
 		g_ShowReward = true;
 		g_RewardStartTimePal = glfwGetTime();
@@ -9377,7 +9384,12 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 					for (COBJModel* obj : vObOBJ)
 					{
 						if (obj->getName() == "puerta3.obj") obj->changeRendering(false);
-						if (obj->getName() == "puerta3_open.obj") obj->changeRendering(true);
+							if (obj->getName() == "puerta3_open.obj")
+							{
+								obj->changeRendering(true);
+								PlaySoundOnce(ID_WOOD);
+							}
+
 					}
 
 						for (auto* hitbox : vHitboxOBJ)
@@ -12642,7 +12654,9 @@ int main(void)
 	if (!LoadAudio(MUSIC_2_FILE, ID_MUSIC_2, 7))         fprintf(stderr, "[AUDIO] Error loading Music 2\n");
 	if (!LoadAudio(LEVER_FILE, ID_LEVER, 90))         fprintf(stderr, "[AUDIO] Error loading Lever\n");
 	if (!LoadAudio(CLICK_FILE, ID_CLICK, 90))         fprintf(stderr, "[AUDIO] Error loading Click\n");
-	if (!LoadAudio(FINAL_FILE, ID_FINAL, 100))         fprintf(stderr, "[AUDIO] Error loading Click\n");
+	if (!LoadAudio(FINAL_FILE, ID_FINAL, 100))         fprintf(stderr, "[AUDIO] Error loading Final\n");
+	if (!LoadAudio(GADGET_FILE, ID_GADGET, 30))         fprintf(stderr, "[AUDIO] Error loading Gadget\n");
+	if (!LoadAudio(WOOD_FILE, ID_WOOD, 40))         fprintf(stderr, "[AUDIO] Error loading Wood\n");
 
 	fprintf(stderr, "sorrolls carregats\n");
 
