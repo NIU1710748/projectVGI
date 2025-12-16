@@ -645,6 +645,7 @@ void renderCandelabre(GLFWwindow* window, bool& g_HeadlightEnabled)
 }
 
 // -------------------- Render Loading --------------------
+bool comença_joc = false;
 void renderLoading(GLFWwindow* window, float progress)
 {
     glfwPollEvents();
@@ -683,6 +684,23 @@ void renderLoading(GLFWwindow* window, float progress)
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f);
     ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.4f, 0.4f, 0.4f, 0.8f)); // color de la barra
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.8f, 0.8f, 0.8f, 0.8f));       // fons de la barra
+
+    if (progress == 1.0f)
+    {
+        ImVec2 windowSize = ImGui::GetWindowSize();
+        ImVec2 textSize = ImGui::CalcTextSize("Prem E per continuar!");
+
+        ImGui::SetWindowFontScale(1.8f);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 1, 1, 1));
+        ImGui::SetCursorPosX((windowSize.x - textSize.x * 1.8f) * 0.5f);
+        ImGui::SetCursorPosY((windowSize.y * 0.05f));
+        ImGui::Text("Prem E per continuar!");
+
+        ImGui::PopStyleColor();
+        ImGui::SetWindowFontScale(1.0f); // tornem a la mida normal
+    }
+
+
 
     ImVec2 barSize(display_w * 0.5f, 30); // mida de la barra
     ImGui::SetCursorPos(ImVec2((winSize.x - barSize.x) * 0.5f, winSize.y * 0.95f));

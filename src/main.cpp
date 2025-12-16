@@ -9712,6 +9712,12 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 		}
 		return;
 	}
+
+
+	if (act_state == GameState::LOADING && action == GLFW_PRESS && key == GLFW_KEY_E)
+	{
+		comença_joc = true;
+	}
 }
 
 
@@ -12766,7 +12772,12 @@ int main(void)
 				g_FPVInitApplied = true;
 				fpv_started = true;
 			}
-			if (fpv_started)
+			if (!comença_joc)
+			{
+				renderLoading(window, 1.0f);
+				
+			}
+			else if (fpv_started)
 			{
 				act_state = GameState::GAME;
 				FPV_SetMouseCapture(true);
