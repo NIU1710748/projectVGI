@@ -1709,9 +1709,45 @@ void ActualitzaAnimacioMans(float /*dt*/)
 		{
 			switch (g_PendingDoorOpen)
 			{
-			case PendingDoorOpen::PUERTA4: /* ... igual ... */ break;
-			case PendingDoorOpen::PUERTA1: /* ... igual ... */ break;
-			case PendingDoorOpen::PUERTA2: /* ... igual ... */ break;
+			case PendingDoorOpen::PUERTA4:
+				portes_obertes[3] = true;
+				for (COBJModel* obj : vObOBJ)
+				{
+					if (obj->getName() == "puerta4.obj")      obj->changeRendering(false);
+					if (obj->getName() == "puerta4_open.obj") obj->changeRendering(true);
+				}
+				for (auto* hitbox : vHitboxOBJ)
+					if (hitbox->getName() == "HITBOX_WALL6_puerta.obj")
+						hitbox->setHitboxActive(false);
+
+				idx_clue = 2;
+				break;
+
+			case PendingDoorOpen::PUERTA1:
+				portes_obertes[2] = true;
+				for (COBJModel* obj : vObOBJ)
+				{
+					if (obj->getName() == "puerta1.obj")      obj->changeRendering(false);
+					if (obj->getName() == "puerta1_open.obj") obj->changeRendering(true);
+				}
+				for (auto* hitbox : vHitboxOBJ)
+					if (hitbox->getName() == "HITBOX_WALL11_puerta.obj")
+						hitbox->setHitboxActive(false);
+
+				idx_clue = 3;
+				break;
+
+			case PendingDoorOpen::PUERTA2:
+				portes_obertes[0] = true;
+				for (COBJModel* obj : vObOBJ)
+				{
+					if (obj->getName() == "puerta2.obj")      obj->changeRendering(false);
+					if (obj->getName() == "puerta2_open.obj") obj->changeRendering(true);
+				}
+				for (auto* hitbox : vHitboxOBJ)
+					if (hitbox->getName() == "HITBOX_WALL14_puerta.obj")
+						hitbox->setHitboxActive(false);
+				break;
 
 			case PendingDoorOpen::PUERTA3:
 				portes_obertes[1] = true;
@@ -1956,6 +1992,7 @@ static void UpdateEndgameCutscene(float dt)
 		break;
 
 	case EndgameState::BLACK:
+		//glfwSetWindowShouldClose(window, GLFW_TRUE);
 		break;
 	}
 }
@@ -2765,7 +2802,7 @@ void InitMatapatos()
 			obj.posicioActual = obj.posicioBase;
 			obj.mida = glm::vec3(0.3f, 0.3f, 0.05f);  // cub petit
 			obj.fase = (float)(i * 0.7 + j * 0.4);
-			obj.velocitat = 1.5f + 0.3f * (float)(i + j);
+			obj.velocitat = 1.0f + 0.3f * (float)(i + j);
 			obj.viu = true;
 
 			g_ObjectiusMatapatos.push_back(obj);
@@ -2927,7 +2964,7 @@ void ActualitzaMatapatos(float dt)
 		//   → es mou més ràpid i recorre més espai
 		// ─────────────────────────────────────────────
 		if (numVius == 1) {
-			speed *= 1.5f;   // més ràpid
+			speed *= 1.2f;   // més ràpid
 			ampX *= 1.2f;   // més recorregut horitzontal
 			ampY *= 1.1f;   // una mica més de moviment vertical
 		}
@@ -5175,7 +5212,7 @@ void dibuixa_Escena()
 		
 	}
 
-	if (!g_Inspecciona)
+	if (!(g_SobelMaskPass && !g_SobelOnlyName.empty()) && !g_Inspecciona)
 		DibuixaMatapatos(shader_programID);
 
 	dibuixa_EscenaGL(
@@ -9531,34 +9568,34 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 
 
 	// Tecla G: mode inspecció
-	if (action == GLFW_PRESS && mods == 0 && key == GLFW_KEY_G)
-	{
-		printf("Modo inspeccion\n");
-		//if (!g_Inspecciona)
+	//if (action == GLFW_PRESS && mods == 0 && key == GLFW_KEY_G)
 		//{
-		//	g_HeadlightEnabled = true;
-		//	//g_FKeyPrev = false;
-		//}
-		//else
-		//{
-		//	g_HeadlightEnabled = true;
-		//}
+	//	printf("Modo inspeccion\n");
+	//	//if (!g_Inspecciona)
+	//	//{
+	//	//	g_HeadlightEnabled = true;
+	//	//	//g_FKeyPrev = false;
+	//	//}
+	//	//else
+	//	//{
+	//	//	g_HeadlightEnabled = true;
+	//	//}
 
 		//SkyBoxCube = !SkyBoxCube;
 
-		g_Inspecciona = !g_Inspecciona;
-		glUseProgram(shader_programID);
-		auto loc = [&](const char* name) {
-			return glGetUniformLocation(shader_programID, name);
-			};
+	//	g_Inspecciona = !g_Inspecciona;
+	//	glUseProgram(shader_programID);
+	//	auto loc = [&](const char* name) {
+	//		return glGetUniformLocation(shader_programID, name);
+	//		};
 
-		glUniform1i(loc("uInspecciona"), g_Inspecciona ? GL_TRUE : GL_FALSE);
-		g_FPV = !g_FPV;
-		//g_SobelOn = !g_SobelOn;
+	//	glUniform1i(loc("uInspecciona"), g_Inspecciona ? GL_TRUE : GL_FALSE);
+	//	g_FPV = !g_FPV;
+	//	//g_SobelOn = !g_SobelOn;
 
 
-		return;
-	}
+	//	return;
+	//}
 	// ─────────────────────────────────────────────────────────────────
 	// ESC: primer tanquem UI (cofre / mapa), després GAME <-> MENU
 	// ─────────────────────────────────────────────────────────────────
