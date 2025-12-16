@@ -71,7 +71,7 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 			bool textur, GLuint texturID[NUM_MAX_TEXTURES], bool textur_map, bool flagInvertY,
 			int nptsU, CPunt3D PC_u[MAX_PATCH_CORBA], GLfloat pasCS, bool sw_PC, bool dib_TFrenet,
 			std::vector<COBJModel*> vObjectesOBJ,
-			glm::mat4 MatriuVista, glm::mat4 MatriuTG)
+			glm::mat4 MatriuVista, glm::mat4 MatriuTG, const std::string& objectToInspect)
 {
 
 	float altfar = 0;
@@ -186,7 +186,7 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 
 			if (g_Inspecciona)
 			{
-				if (objecteOBJ->getName() == "INTERACTUABLE_ancla_gir.obj")
+				if (objecteOBJ->getName() == objectToInspect)
 				{
 					// Pas ModelView Matrix a shader
 					ModelMatrix = objecteOBJ->modelMatrix();  // DIFFERENT PER OBJECT

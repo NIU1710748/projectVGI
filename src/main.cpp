@@ -58,7 +58,15 @@ enum class TipusInteraccioContext {
 	PALANCA_6,
 	PALANCA_7,
 	PALANCA_8,
-	COFRE_FINAL
+	COFRE_FINAL,
+	INSPECCIONAR_ANCLA,
+	INSPECCIONAR_ESPADA,
+	INSPECCIONAR_BOTELLA,
+	INSPECCIONAR_PALA,
+	INSPECCIONAR_BARRIL,
+	INSPECCIONAR_BOMBA,
+	INSPECCIONAR_CALAVERA,
+	INSPECCIONAR_HACHA
 };
 
 std::string g_SobelOnlyName = ""; // vacío = dibuja todos
@@ -70,6 +78,8 @@ float g_InteractMaxDist = 3.5f;  // ajusta
 
 TipusInteraccioContext g_InteraccioContext = TipusInteraccioContext::NONE;
 bool g_InteraccioDisponible = false;
+bool g_InspeccioDisponible = false;
+std::string g_ObjectToInspect = "";
 
 // POSICIONS DE LES ZONES DE TP (X,Y,Z) – centres aproximats
 glm::vec3 g_PosZonaBaixaAMitja(-8.71f, 1.70f, 2.82f);
@@ -148,6 +158,7 @@ GamepadState g_Pad{};
 GamepadState g_PadPrev{};
 
 static inline const char* BtnInteract() { return (g_Pad.connected) ? "X" : "E"; }
+static inline const char* BtnInspect() { return (g_Pad.connected) ? "X" : "G"; }
 static inline const char* BtnInventory() { return (g_Pad.connected) ? "Y" : "I"; }
 static inline const char* BtnFlashlight() { return (g_Pad.connected) ? "LB" : "F"; }
 
@@ -1584,8 +1595,8 @@ void DibuixaHUDInteraccioContextual()
 	if (g_EstatMatapatos == EstatMatapatos::JUGANT) return;
 	if (g_InventariObert) return;
 
-	// ✅ PRIORIDAD: si el Matapatos está disponible, que NO pise el prompt
-	// (así no verás “pujar escales” encima del Matapatos)
+	// si el Matapatos está disponible, que NO pise el prompt
+	// (así no saldrá “pujar escales” encima del Matapatos)
 	if (g_MatapatosInteractuable && !g_MatapatosSuperat && g_EstatMatapatos == EstatMatapatos::OFF)
 		return;
 
@@ -1603,7 +1614,12 @@ void DibuixaHUDInteraccioContextual()
 
 	ImGui::Begin("HUD_InteraccioContextual", nullptr, flags);
 
+	
+	const char* bi = BtnInspect();
 	const char* b = BtnInteract();
+
+
+	std::string item;
 
 	switch (g_InteraccioContext)
 	{
@@ -1648,6 +1664,31 @@ void DibuixaHUDInteraccioContextual()
 	case TipusInteraccioContext::PALANCA_7:
 	case TipusInteraccioContext::PALANCA_8:
 		ImGui::Text("Prem %s per moure la palanca", b);
+		break;
+
+	case TipusInteraccioContext::INSPECCIONAR_ANCLA:
+		ImGui::Text("Prem %s per inspeccionar ancla", bi);
+		break;
+	case TipusInteraccioContext::INSPECCIONAR_ESPADA:
+		ImGui::Text("Prem %s per inspeccionar espada", bi);
+		break;
+	case TipusInteraccioContext::INSPECCIONAR_BOTELLA:
+		ImGui::Text("Prem %s per inspeccionar botella", bi);
+		break;
+	case TipusInteraccioContext::INSPECCIONAR_PALA:
+		ImGui::Text("Prem %s per inspeccionar pala", bi);
+		break;
+	case TipusInteraccioContext::INSPECCIONAR_BARRIL:
+		ImGui::Text("Prem %s per inspeccionar barril", bi);
+		break;
+	case TipusInteraccioContext::INSPECCIONAR_BOMBA:
+		ImGui::Text("Prem %s per inspeccionar bomba", bi);
+		break;
+	case TipusInteraccioContext::INSPECCIONAR_CALAVERA:
+		ImGui::Text("Prem %s per inspeccionar calavera", bi);
+		break;
+	case TipusInteraccioContext::INSPECCIONAR_HACHA:
+		ImGui::Text("Prem %s per inspeccionar hacha", bi);
 		break;
 
 	default:
@@ -2320,9 +2361,21 @@ static void ActualitzaSobelHighlight()
 	{
 		const auto& z = g_ZonesSobel[i];
 
-		if (fabsf(g_FPVPos.y - z.pos.y) > z.yTol)  continue;
-		if (fabsf(g_FPVPos.x - z.pos.x) > z.halfX) continue;
-		if (fabsf(g_FPVPos.z - z.pos.z) > z.halfZ) continue;
+		if (fabsf(g_FPVPos.y - z.pos.y) > z.yTol)  
+		{
+			g_InspeccioDisponible = false;
+			continue;
+		}
+		if (fabsf(g_FPVPos.x - z.pos.x) > z.halfX) 
+		{
+			g_InspeccioDisponible = false;
+			continue;
+		}
+		if (fabsf(g_FPVPos.z - z.pos.z) > z.halfZ) 
+		{
+			g_InspeccioDisponible = false;
+			continue;
+		}
 
 		const float dx = g_FPVPos.x - z.pos.x;
 		const float dz = g_FPVPos.z - z.pos.z;
@@ -2336,7 +2389,14 @@ static void ActualitzaSobelHighlight()
 	}
 
 	if (bestIdx >= 0)
+	{
 		g_SobelNomHighlight = g_ZonesSobel[bestIdx].nomObj;
+		if (g_SobelNomHighlight.rfind("INTERACTUABLE", 0) == 0) // Mis cambios
+		{
+			g_InspeccioDisponible = true;
+		}
+		
+	}
 }
 
 
@@ -4428,6 +4488,52 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 		{
 			if (!g_MatapatosInteractuable)
 			{
+				if (g_InspeccioDisponible)
+				{
+					if (g_SobelNomHighlight == "INTERACTUABLE_ancla.obj")
+					{
+						g_InteraccioDisponible = true;
+						g_InteraccioContext = TipusInteraccioContext::INSPECCIONAR_ANCLA;
+					}
+					else if (g_SobelNomHighlight == "INTERACTUABLE_espada.obj")
+					{
+						g_InteraccioDisponible = true;
+						g_InteraccioContext = TipusInteraccioContext::INSPECCIONAR_ESPADA;
+					}
+					else if (g_SobelNomHighlight == "INTERACTUABLE_botella.obj")
+					{
+						g_InteraccioDisponible = true;
+						g_InteraccioContext = TipusInteraccioContext::INSPECCIONAR_BOTELLA;
+					}
+					else if (g_SobelNomHighlight == "INTERACTUABLE_pala.obj")
+					{
+						g_InteraccioDisponible = true;
+						g_InteraccioContext = TipusInteraccioContext::INSPECCIONAR_PALA;
+					}
+					else if (g_SobelNomHighlight == "INTERACTUABLE_barril.obj")
+					{
+						g_InteraccioDisponible = true;
+						g_InteraccioContext = TipusInteraccioContext::INSPECCIONAR_BARRIL;
+					}
+					else if (g_SobelNomHighlight == "INTERACTUABLE_bomba.obj")
+					{
+						g_InteraccioDisponible = true;
+						g_InteraccioContext = TipusInteraccioContext::INSPECCIONAR_BOMBA;
+					}
+					else if (g_SobelNomHighlight == "INTERACTUABLE_calavera.obj")
+					{
+						g_InteraccioDisponible = true;
+						g_InteraccioContext = TipusInteraccioContext::INSPECCIONAR_CALAVERA;
+					}
+					else if (g_SobelNomHighlight == "INTERACTUABLE_hacha.obj")
+					{
+						g_InteraccioDisponible = true;
+						g_InteraccioContext = TipusInteraccioContext::INSPECCIONAR_HACHA;
+					}
+
+					
+				}
+
 				auto dinsZona3D = [](const glm::vec3& pos, const glm::vec3& centre,
 					float radiXZ, float halfHeight) -> bool
 					{
@@ -4789,7 +4895,7 @@ void dibuixa_Solo_Objeto()
 		objecte, col_obj, sw_material,
 		textura, texturesID, textura_map, tFlag_invert_Y,
 		npts_T, PC_t, pas_CS, sw_Punts_Control, dibuixa_TriedreFrenet,
-		vObOBJ, ViewMatrix, M
+		vObOBJ, ViewMatrix, M, g_ObjectToInspect
 	);
 
 	glUseProgram(0);
@@ -5230,7 +5336,7 @@ void dibuixa_Escena()
 		textura, texturesID, textura_map, tFlag_invert_Y,
 		npts_T, PC_t, pas_CS, sw_Punts_Control, dibuixa_TriedreFrenet,
 		vObOBJ,
-		ViewMatrix, GTMatrix
+		ViewMatrix, GTMatrix, g_ObjectToInspect
 	);
 }
 
@@ -9341,19 +9447,19 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				{
 					if (joc_quadres_finalitzat)
 					{
-					portes_obertes[3] = true;
-					for (COBJModel* obj : vObOBJ)
-					{
-						if (obj->getName() == "puerta4.obj") obj->changeRendering(false);
-						if (obj->getName() == "puerta4_open.obj") obj->changeRendering(true);
-					}
-						for (auto* hitbox : vHitboxOBJ)
-							if (hitbox->getName() == "HITBOX_WALL6_puerta.obj") //Esta es la puerta del cofre de figuras
-								hitbox->setHitboxActive(false);
+						portes_obertes[3] = true;
+						for (COBJModel* obj : vObOBJ)
+						{
+							if (obj->getName() == "puerta4.obj") obj->changeRendering(false);
+							if (obj->getName() == "puerta4_open.obj") obj->changeRendering(true);
+						}
+							for (auto* hitbox : vHitboxOBJ)
+								if (hitbox->getName() == "HITBOX_WALL6_puerta.obj") //Esta es la puerta del cofre de figuras
+									hitbox->setHitboxActive(false);
 
-					StartHandAnimation(10);
+						StartHandAnimation(10);
 						idx_clue = 2;
-				}
+					}
 				}
 				break;
 
@@ -9380,25 +9486,25 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				{
 					if (joc_Matapatos_finalitzat)
 					{
-					portes_obertes[1] = true;
-					for (COBJModel* obj : vObOBJ)
-					{
-						if (obj->getName() == "puerta3.obj") obj->changeRendering(false);
-							if (obj->getName() == "puerta3_open.obj")
-							{
-								obj->changeRendering(true);
-								PlaySoundOnce(ID_WOOD);
-							}
+						portes_obertes[1] = true;
+						for (COBJModel* obj : vObOBJ)
+						{
+							if (obj->getName() == "puerta3.obj") obj->changeRendering(false);
+								if (obj->getName() == "puerta3_open.obj")
+								{
+									obj->changeRendering(true);
+									PlaySoundOnce(ID_WOOD);
+								}
 
-					}
+						}
 
-						for (auto* hitbox : vHitboxOBJ)
-							if (hitbox->getName() == "HITBOX_WALL15_puerta.obj")
-								hitbox->setHitboxActive(false);
+							for (auto* hitbox : vHitboxOBJ)
+								if (hitbox->getName() == "HITBOX_WALL15_puerta.obj")
+									hitbox->setHitboxActive(false);
 
-					StartHandAnimation(6);
+						StartHandAnimation(6);
 						idx_clue = 4;
-				}
+					}
 				}
 				break;
 
@@ -9406,18 +9512,18 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				{
 					if (joc_simbolsFinal_finalitzat)
 					{
-					portes_obertes[0] = true;
-					for (COBJModel* obj : vObOBJ)
-					{
-						if (obj->getName() == "puerta2.obj") obj->changeRendering(false);
-						if (obj->getName() == "puerta2_open.obj") obj->changeRendering(true);
-					}
+						portes_obertes[0] = true;
+						for (COBJModel* obj : vObOBJ)
+						{
+							if (obj->getName() == "puerta2.obj") obj->changeRendering(false);
+							if (obj->getName() == "puerta2_open.obj") obj->changeRendering(true);
+						}
 
-						for (auto* hitbox : vHitboxOBJ)
-							if (hitbox->getName() == "HITBOX_WALL14_puerta.obj")
-								hitbox->setHitboxActive(false);
-					StartHandAnimation(10);
-				}
+							for (auto* hitbox : vHitboxOBJ)
+								if (hitbox->getName() == "HITBOX_WALL14_puerta.obj")
+									hitbox->setHitboxActive(false);
+						StartHandAnimation(10);
+					}
 				}
 				break;
 				case TipusInteraccioContext::PALANCA_1:  // PALANCAZZZ per jugar amb teclat
@@ -9545,14 +9651,52 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 		// Tecla G: mode inspecció
 		if (action == GLFW_PRESS && mods == 0 && key == GLFW_KEY_G)
 		{
-			g_Inspecciona = !g_Inspecciona;
-			glUseProgram(shader_programID);
-			auto loc = [&](const char* name) {
-				return glGetUniformLocation(shader_programID, name);
-				};
+			if (g_InspeccioDisponible)
+			{
+				switch (g_InteraccioContext)
+				{
+				case TipusInteraccioContext::INSPECCIONAR_ANCLA:
+					g_ObjectToInspect = "INTERACTUABLE_ancla_gir.obj";
+					break;
+				case TipusInteraccioContext::INSPECCIONAR_ESPADA:
+					g_ObjectToInspect = "INTERACTUABLE_espada_gir.obj";
+					break;
+				case TipusInteraccioContext::INSPECCIONAR_BOTELLA:
+					g_ObjectToInspect = "INTERACTUABLE_botella_gir.obj";
+					break;
+				case TipusInteraccioContext::INSPECCIONAR_PALA:
+					g_ObjectToInspect = "INTERACTUABLE_pala_gir.obj";
+					break;
+				case TipusInteraccioContext::INSPECCIONAR_BARRIL:
+					g_ObjectToInspect = "INTERACTUABLE_barril_gir.obj";
+					break;
+				case TipusInteraccioContext::INSPECCIONAR_BOMBA:
+					g_ObjectToInspect = "INTERACTUABLE_bomba_gir.obj";
+					break;
+				case TipusInteraccioContext::INSPECCIONAR_CALAVERA:
+					g_ObjectToInspect = "INTERACTUABLE_calavera_gir.obj";
+					break;
+				case TipusInteraccioContext::INSPECCIONAR_HACHA:
+					g_ObjectToInspect = "INTERACTUABLE_hacha_gir.obj";
+					break;
 
-			glUniform1i(loc("uInspecciona"), g_Inspecciona ? GL_TRUE : GL_FALSE);
-			g_FPV = !g_FPV;
+				default:
+					break;
+				}
+
+				OPV.R = cam_Esferica[0];
+				OPV.alfa = cam_Esferica[1];
+				OPV.beta = cam_Esferica[2];
+
+				g_Inspecciona = !g_Inspecciona;
+				glUseProgram(shader_programID);
+				auto loc = [&](const char* name) {
+					return glGetUniformLocation(shader_programID, name);
+					};
+
+				glUniform1i(loc("uInspecciona"), g_Inspecciona ? GL_TRUE : GL_FALSE);
+				g_FPV = !g_FPV;
+			}
 			return;
 		}
 		
