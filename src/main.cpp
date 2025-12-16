@@ -928,7 +928,7 @@ void LoadHandAnimationSheet(int id, float srcFPS, int cols, int rows, int frameC
 	char path[512];
 	sprintf(path, ".\\textures\\hands\\Animation%d\\Animation%d_sheet.png", id, id);
 
-	anim.tex = loadTextureReturnID(path);
+	anim.tex = loadTextureReturnID_NoMips(path);
 	if (!anim.tex) {
 		fprintf(stderr, "[MANS] [Anim %d] Error carregant sheet.\n", id);
 		anim.frameCount = 0;

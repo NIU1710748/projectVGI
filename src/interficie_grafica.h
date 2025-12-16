@@ -139,6 +139,27 @@ GLuint loadTextureReturnID(const char* path)
     return texID;
 }
 
+GLuint loadTextureReturnID_NoMips(const char* path)
+{
+    GLuint texID = SOIL_load_OGL_texture(
+        path,
+        SOIL_LOAD_AUTO,
+        SOIL_CREATE_NEW_ID,
+        0 // <-- SIN SOIL_FLAG_MIPMAPS
+    );
+
+    if (texID == 0)
+        std::cout << "Error carregant la textura amb SOIL2: "
+        << SOIL_last_result() << std::endl;
+
+    // Filtrado sin mipmaps (importante para que no quede "negra" si el driver espera mips)
+    glBindTexture(GL_TEXTURE_2D, texID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    return texID;
+}
+
 // Carregar totes les textures al principi
 void initTextures()
 {
