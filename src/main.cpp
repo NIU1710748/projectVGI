@@ -1751,7 +1751,7 @@ void DibuixaHUDInteraccioContextual()
 		ImGui::Text("Prem %s per inspeccionar espada", bi);
 		break;
 	case TipusInteraccioContext::INSPECCIONAR_BOTELLA:
-		ImGui::Text("Prem %s per inspeccionar botella", bi);
+		ImGui::Text("Prem %s per inspeccionar ampolla", bi);
 		break;
 	case TipusInteraccioContext::INSPECCIONAR_PALA:
 		ImGui::Text("Prem %s per inspeccionar pala", bi);
@@ -1766,7 +1766,7 @@ void DibuixaHUDInteraccioContextual()
 		ImGui::Text("Prem %s per inspeccionar calavera", bi);
 		break;
 	case TipusInteraccioContext::INSPECCIONAR_HACHA:
-		ImGui::Text("Prem %s per inspeccionar hacha", bi);
+		ImGui::Text("Prem %s per inspeccionar destral", bi);
 		break;
 
 	default:
