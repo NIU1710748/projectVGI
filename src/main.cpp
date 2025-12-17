@@ -329,6 +329,9 @@ GLuint g_HandsVBO = 0;
 GLuint g_HandsEBO = 0;
 GLuint g_HandsProg = 0;
 
+static bool g_HoldHandLastFrame = false;
+static bool g_RequestCloseGame = false;
+
 // ─────────────────────────────────────────────
 // Estat de l'animació de la llanterna
 // ─────────────────────────────────────────────
@@ -553,7 +556,6 @@ float g_InspectPitchSpeed = 110.0f;  // deg/s
 float g_InspectZoomSpeed = 25.0f;   // R-units/s
 float g_InspectRMin = 1.0f;
 float g_InspectRMax = 120.0f;        // <-- sube esto (o ponlo enorme)
-
 
 
 static inline float DZ(float v, float dz) { return (fabsf(v) < dz) ? 0.0f : v; }
@@ -1119,6 +1121,8 @@ void StartHandAnimation(int id)
 	g_HandTime = 0.0f;
 	g_HandFrame = 0;
 	g_HandStartTime = glfwGetTime();
+	g_HoldHandLastFrame = false;
+	g_RequestCloseGame = false;
 
 	fprintf(stderr, "[MANS] Animacio START (%d)\n", id);
 
@@ -1206,7 +1210,8 @@ static void EncolaAnimMans(int animId)
 static void EncolaAnimMans(std::initializer_list<int> ids)
 {
 	for (int id : ids) EncolaAnimMans(id);
-	}
+}
+	
 
 
 
@@ -1218,7 +1223,8 @@ static void EncolaAnimMans(std::initializer_list<int> ids)
 // ─────────────────────────────────────────────────────────────────────────────
 void dibuixa_Mano()
 {
-	if (!g_HandPlaying || g_CurrentHandAnim < 0 || g_CurrentHandAnim >= HAND_ANIM_COUNT)
+	if ((!g_HandPlaying && !g_HoldHandLastFrame) || 
+		g_CurrentHandAnim < 0 || g_CurrentHandAnim >= HAND_ANIM_COUNT)
 		return;
 
 	HandAnimation& anim = g_HandAnims[g_CurrentHandAnim];
@@ -1227,7 +1233,8 @@ void dibuixa_Mano()
 	int cols = 1;
 	int rows = 1;
 	int nFrames = 0;
-
+	
+	
 	if (anim.tex && anim.frameCount > 0) {
 
 		tex = anim.tex;
@@ -1810,7 +1817,15 @@ void ActualitzaAnimacioMans(float /*dt*/)
 		g_HandFrame = frameIdx;
 		g_HandPlaying = false;
 
+
 		fprintf(stderr, "[MANS] Animacio END (%d)\n", g_CurrentHandAnim);
+
+		if (g_EndgameActive && g_CurrentHandAnim == 18)
+		{
+			g_HoldHandLastFrame = true;
+			g_RequestCloseGame = true;
+			return;
+		}
 
 		// ============================================================
 // PUERTAS: abrir SOLO cuando termine la animación 10
@@ -2109,6 +2124,7 @@ static void UpdateEndgameCutscene(float dt)
 		break;
 
 	case EndgameState::BLACK:
+		// El codigo no entra aqui //
 		//glfwSetWindowShouldClose(window, GLFW_TRUE);
 		break;
 	}
@@ -5041,9 +5057,11 @@ void OnPaint(GLFWwindow* window, float dt)
 {
 
 	if (IsEndgameBlack()) {
-		glClearColor(0, 0, 0, 1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glClearColor(0, 0, 0, 1);
+		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		dibuixa_Mano(); // si quieres que aún se vea la última mano (si no, quítalo)
+		//printf("Deberia borrarse ahora (esperemos)\n");
+		//glfwSetWindowShouldClose(window, GLFW_TRUE);
 		return;
 	}
 
@@ -5269,6 +5287,9 @@ void OnPaint(GLFWwindow* window, float dt)
 	// 8. HUD FINAL
 	dibuixa_Mano();
 	if (statusB) Barra_Estat();
+
+	if (g_RequestCloseGame)
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
 }
 
 
@@ -5307,7 +5328,7 @@ void DibuixaJocPalanques()// PALANCAZZZ
 			if (obj->getName() == "cofre.obj") obj->changeRendering(true);
 		}
 
-		StartHandAnimation(1);
+		StartHandAnimation(0);
 		PlaySoundOnce(ID_GADGET);
 		PlaySoundOnce(ID_CHEST);
 		g_CofreItemAfegitPalanques = true;
@@ -5849,7 +5870,7 @@ void draw_scene()
 	const bool showHUD_Gameplay = !g_EndgameActive;  // true = se dibuja, false = se oculta
 
 
-	if (showHUD_Gameplay) {
+	if (showHUD_Gameplay && !g_Inspecciona) {
 	renderCronometre(window);
 		renderCandelabre(window, g_HeadlightEnabled);
 		DibuixaHUDInteraccioContextual();
@@ -13010,7 +13031,8 @@ int main(void)
 
 	glfwSwapInterval(0);
 
-	//OnFull_Screen(primary, window);Pantalla Completa
+	// Pantalla completa pausada por debugging
+	//OnFull_Screen(primary, window); //Pantalla Completa
 	// 	// ====== FIN INICIALIZACIÓN ======
 
 	unsigned long long frame = 0;

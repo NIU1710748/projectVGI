@@ -622,7 +622,7 @@ void renderCandelabre(GLFWwindow* window, bool& g_HeadlightEnabled)
     ImGui::SetNextWindowSize(ImVec2(display_w, display_h), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
 
-    float iconScale = 0.1f;
+    float iconScale = 0.075f;
     float iconW = display_w * iconScale;
     float iconH = iconW * 0.9f;
 
@@ -699,12 +699,13 @@ void renderLoading(GLFWwindow* window, float progress)
         ImGui::PopStyleColor();
         ImGui::SetWindowFontScale(1.0f); // tornem a la mida normal
     }
-
-
-
-    ImVec2 barSize(display_w * 0.5f, 30); // mida de la barra
-    ImGui::SetCursorPos(ImVec2((winSize.x - barSize.x) * 0.5f, winSize.y * 0.95f));
-    ImGui::ProgressBar(progress, barSize, "Carregant...");
+    else
+    {
+        ImVec2 barSize(display_w * 0.5f, 30); // mida de la barra
+        ImGui::SetCursorPos(ImVec2((winSize.x - barSize.x) * 0.5f, winSize.y * 0.95f));
+        ImGui::ProgressBar(progress, barSize, "Carregant...");
+    }
+    
 
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(2);
