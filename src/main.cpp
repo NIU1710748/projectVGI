@@ -1705,7 +1705,7 @@ void DibuixaHUDInteraccioContextual()
 	case TipusInteraccioContext::MITJA_A_BAIXA:        ImGui::Text("Prem %s per baixar a la planta inferior", b); break;
 	case TipusInteraccioContext::MITJA_A_SUPERIOR:     ImGui::Text("Prem %s per pujar a la coberta", b); break;
 	case TipusInteraccioContext::SUPERIOR_A_MITJA:     ImGui::Text("Prem %s per baixar a la planta mitja", b); break;
-	case TipusInteraccioContext::SUPERIOR_A_TIMO:      ImGui::Text("Prem %s per pujar al pis del timó", b); break;
+	case TipusInteraccioContext::SUPERIOR_A_TIMO:      ImGui::Text("Prem %s per pujar al pis del timo", b); break;
 	case TipusInteraccioContext::TIMO_A_SUPERIOR:      ImGui::Text("Prem %s per baixar a la coberta", b); break;
 
 	case TipusInteraccioContext::ESCAPAR_BARCA:        ImGui::Text("Prem %s per pujar a la barca i escapar", b); break;
