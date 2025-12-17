@@ -5305,18 +5305,11 @@ std::vector<bool> solucioPalanques = { true, false, true, true, false, true, fal
 std::vector<bool> actualPalanques = { true, true, true, true, true, true, true, true };  // True palanca arriba, False palanca abajo
 
 bool g_CofreItemAfegitPalanques = false;  // PALANCAZZZ no hace falta tocar nada de aqui
-void DibuixaJocPalanques()// PALANCAZZZ
+void DibuixaJocPalanques()
 {
-	ImGuiIO& io = ImGui::GetIO();
-	if (joc_palanques_finalitzat && g_ShowReward)
-	{
-		double now = glfwGetTime();
-		if (now - g_RewardStartTimePal < g_RewardDurationPal) {
-			claimRewards(io, 2);
-		}
-		else
-			g_ShowReward = false;
-	}
+	if (actualPalanques == solucioPalanques)
+		joc_palanques_finalitzat = true;
+
 	if (joc_palanques_finalitzat && !g_CofreItemAfegitPalanques)
 	{
 		AfegirItemInventari("clau_palanques", "Clau luxosa",
@@ -5333,13 +5326,21 @@ void DibuixaJocPalanques()// PALANCAZZZ
 		PlaySoundOnce(ID_CHEST);
 		g_CofreItemAfegitPalanques = true;
 		g_ShowReward = true;
+
 		g_RewardStartTimePal = glfwGetTime();
+		g_RewardDurationPal = g_RewardStartTimePal + 5.0f;
+		/*printf("Temps ini: %f", g_RewardStartTimePal);
+		printf("Temps final: %f", g_RewardDurationPal);*/
 	}
 
-
-	if (actualPalanques == solucioPalanques)
+	if (joc_palanques_finalitzat && g_ShowReward)
 	{
-		joc_palanques_finalitzat = true;
+		g_RewardStartTimePal = glfwGetTime();
+		if (g_RewardStartTimePal < g_RewardDurationPal)
+		{
+			ImGuiIO& io = ImGui::GetIO();
+			claimRewards(io, 2);
+		}
 	}
 }
 
@@ -5735,6 +5736,16 @@ void DibuixaHUDCofre()
 	if (cofre_on)
 		renderCofreContrasena(window);
 
+	if (g_ShowReward && joc_quadres_finalitzat)
+	{
+		double now = glfwGetTime();
+		if (now < g_RewardDuration)
+		{
+			ImGuiIO& io = ImGui::GetIO();
+			claimRewards(io, 0);
+		}
+	}
+
 	if (joc_quadres_finalitzat && !g_CofreItemAfegit)
 	{
 		AfegirItemInventari("clau_quadres", "Clau rovellada",
@@ -5751,18 +5762,10 @@ void DibuixaHUDCofre()
 		idx_clue = 2;
 
 		g_ShowReward = true;
-		g_RewardStartTime = glfwGetTime(); // temps actual
-	}
-	if (g_ShowReward && joc_quadres_finalitzat)
-	{
-		double elapsed = glfwGetTime() - g_RewardStartTime;
-		if (elapsed < g_RewardDuration)
-		{
-			ImGuiIO& io = ImGui::GetIO();
-			claimRewards(io, 0);
-		}
-		else
-			g_ShowReward = false; // ja ha passat el temps
+		g_RewardStartTime = glfwGetTime();
+		g_RewardDuration = g_RewardStartTime + 5.0f;
+		//printf("Tiempo ini: %f", g_RewardStartTime);
+		//printf("Tiempo final: %f", g_RewardDuration);
 	}
 }
 
@@ -5770,16 +5773,15 @@ bool g_CofreItemFinalAfegit = false;
 void DibuixaHUDCofreFinal()
 {
 
-	ImGuiIO& io = ImGui::GetIO();
 	if (joc_simbolsFinal_finalitzat && g_ShowReward)
 	{
-		double now = glfwGetTime();
-		if (now - g_RewardStartTimeFinal < g_RewardDurationFinal) {
+		g_RewardStartTimeFinal = glfwGetTime();
+		if (g_RewardStartTimeFinal < g_RewardDurationFinal)
+		{
+			ImGuiIO& io = ImGui::GetIO();
 			claimRewards(io, 3);
 		}
-		else
-			g_ShowReward = false;
-}
+	}
 
 	if (cofre_final_on)
 		renderCofreFinal(window);
@@ -5797,10 +5799,13 @@ void DibuixaHUDCofreFinal()
 
 		StartHandAnimation(1);
 		g_CofreItemFinalAfegit = true;
-		g_ShowReward = true;
-		g_RewardStartTimeFinal = glfwGetTime(); // temps actual
-	}
 
+		g_ShowReward = true;
+		g_RewardStartTimeFinal = glfwGetTime();
+		g_RewardDurationFinal = g_RewardStartTimeFinal + 5.0f;
+		//printf("Tiempo ini: %f", g_RewardStartTimeFinal);
+		//printf("Tiempo final: %f", g_RewardDurationFinal);
+	}
 }
 
 // Función auxiliar para pintar el negro con ImGui
