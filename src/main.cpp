@@ -100,7 +100,7 @@ float     g_RadiZonaSuperiorATimo = 1.5f;
 glm::vec3 g_PosZonaTimoASuperior(-9.69f, 11.70f, -5.17f);
 float     g_RadiZonaTimoASuperior = 1.5f;
 
-glm::vec3 g_PosPortaMitjaCapAbaix(-7.73f, 5.20f, 0.27f); //pattata
+glm::vec3 g_PosPortaMitjaCapAbaix(-7.73f, 5.20f, 0.27f); 
 float     g_RadiPortaMitjaCapAbaix = 1.5f;
 
 glm::vec3 g_PosPortaMitjaCapAdalt(7.0f, 5.20f, 0.27f);;
@@ -512,7 +512,7 @@ void UpdateGamepad(float /*dt*/)
 		g_Pad.rx = Deadzone(state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X]);
 		g_Pad.ry = Deadzone(state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y]);
 
-		// Gatillos vienen en [-1,1] → lo pasamos a [0,1]
+		// Gatillos vienen en [-1,1] , lo pasamos a [0,1]
 		float ltRaw = state.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER];
 		float rtRaw = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER];
 		g_Pad.lt = (ltRaw + 1.0f) * 0.5f;
@@ -1025,10 +1025,10 @@ void LoadHandAnimationSheet(int id, float srcFPS, int cols, int rows, int frameC
 	}
 }
 
-// AnimationX_sheet.png  → (id, fps, cols, rows, frameCount)
+// AnimationX_sheet.png  , (id, fps, cols, rows, frameCount)
 void InitHandAnimations()
 {
-	// 0 – Sacar llave 1 (DIESTRA → a la derecha)
+	// 0 – Sacar llave 1 (DIESTRA , a la derecha)
 	g_HandAnims[0].offsetX = 0.25f;   // prueba este valor
 	LoadHandAnimationSheet(0, 45.0f, 22, 9, 180);
 
@@ -3112,7 +3112,7 @@ void ActualitzaMatapatos(float dt)
 
 		// ─────────────────────────────────────────────
 		// FASE TENSIÓ: si només queda 1 pato viu
-		//   → es mou més ràpid i recorre més espai
+		//   , es mou més ràpid i recorre més espai
 		// ─────────────────────────────────────────────
 		if (numVius == 1) {
 			speed *= 1.2f;   // més ràpid
@@ -4371,7 +4371,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 		{
 			if (!g_HeadlightEnabled)
 			{
-				// Estava apagada → seqüència per encendre: 9 (cerilla) → 7 (linterna)
+				// Estava apagada , seqüència per encendre: 9 (cerilla) , 7 (linterna)
 				g_FlashAnimState = FlashlightAnimState::TURNING_ON;
 				StartHandAnimation(9);
 				QueueHandAnimation(7);
@@ -4380,7 +4380,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 			}
 			else
 			{
-				// Estava encesa → seqüència per apagar: 8
+				// Estava encesa , seqüència per apagar: 8
 				g_FlashAnimState = FlashlightAnimState::TURNING_OFF;
 				StartHandAnimation(8);
 				g_QueuedHandAnim = -1;
@@ -4678,14 +4678,14 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::COFRE_FINAL;
 				}
-				if (!portes_obertes[3]) //pattata
+				if (!portes_obertes[3]) 
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaMitjaCapAbaix, g_RadiPortaMitjaCapAbaix, halfH))
 					{
 						g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PORTA_CAPABAIX;
 			}
 		}
-				if (!portes_obertes[2]) //pattata
+				if (!portes_obertes[2]) 
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaMitjaCapAdalt, g_RadiPortaMitjaCapAdalt, halfH))
 					{
@@ -4693,7 +4693,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 	}
 				}
 
-				if (!portes_obertes[1]) //pattata
+				if (!portes_obertes[1]) 
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaSuperiorEntrada, g_RadiPortaSuperiorEntrada, halfH))
 					{
@@ -4701,7 +4701,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 					}
 				}
 
-				if (!portes_obertes[0]) //pattata
+				if (!portes_obertes[0]) 
 				{
 					if (dinsZona3D(g_FPVPos, g_PosPortaSuperiorSortida, g_RadiPortaSuperiorSortida, halfH))
 					{
@@ -5046,7 +5046,7 @@ void dibuixa_Solo_Objeto()
 // ────────────────────────────────────────────────────────────────────────────
 // OnPaint: Dibuix d’un frame a framebuffer (backbuffer) i postprocés Sobel
 // ─ Flux:
-//   1) Escena “normal” → backbuffer
+//   1) Escena “normal” , backbuffer
 //   2) Si Sobel està actiu:
 //        2.1) Pre-pass de profunditat de sala+props al FBO
 //        2.2) Màscara en blanc de l’objecte amb test Z
@@ -8821,7 +8821,7 @@ void HandleInteract(GLFWwindow* window)
 	if (!g_FPV || act_state != GameState::GAME)
 		return;
 
-	// 0) Si el cofre està obert → el tanquem
+	// 0) Si el cofre està obert , el tanquem
 	if (cofre_on)
 	{
 		cofre_on = false;
@@ -8839,14 +8839,14 @@ void HandleInteract(GLFWwindow* window)
 		return;
 	}
 
-	// 1) Si el mapa de palanques està obert → tancar-lo
+	// 1) Si el mapa de palanques està obert , tancar-lo
 	if (g_MapaPalanquesObrit)
 	{
 		ToggleMapaPalanquesAmbMans(window);
 		return;
 	}
 
-	// 2) Si el document del terra és interactuable → obrir el mapa
+	// 2) Si el document del terra és interactuable , obrir el mapa
 	if (g_MapaPalanquesInteractuable && !g_MapaPalanquesObrit)
 	{
 		ToggleMapaPalanquesAmbMans(window);
@@ -9207,7 +9207,7 @@ void UpdateGamepadActions(GLFWwindow* window)
 	if (act_state == GameState::GAME)
 	{
 		// =========================================================
-		// RB → "G" (modo inspección)  [SOLO RB]
+		// RB , "G" (modo inspección)  [SOLO RB]
 		// =========================================================
 		const bool rbJustPressed = (g_Pad.btnRB && !g_PadPrev.btnRB);
 		if (rbJustPressed)
@@ -9217,7 +9217,7 @@ void UpdateGamepadActions(GLFWwindow* window)
 			return; // no mezclar con X/Y/B/START este frame
 		}
 
-		// X → Interactuar
+		// X , Interactuar
 		const bool xJustPressed = (g_Pad.btnX && !g_PadPrev.btnX);
 		if (xJustPressed)
 		{
@@ -9234,27 +9234,27 @@ void UpdateGamepadActions(GLFWwindow* window)
 			HandleInteract(window);
 		}
 
-		// Y → Inventari
+		// Y , Inventari
 		const bool yJustPressed = (g_Pad.btnY && !g_PadPrev.btnY);
 		if (yJustPressed)
 		{
 			HandleToggleInventory(window);
 		}
 
-		// B → back (Matapatos o ESC)
+		// B , back (Matapatos o ESC)
 		if (bJustPressed)
 		{
 			if (g_EstatMatapatos != EstatMatapatos::OFF) AturaMatapatos();
 			else HandleEscapeKey(window);
 			}
 
-		// START → ESC / MENU <-> GAME
+		// START , ESC / MENU <-> GAME
 		if (startJustPressed)
 		{
 			HandleEscapeKey(window);
 		}
 
-		// LB → linterna ON/OFF (solo FPV)
+		// LB , linterna ON/OFF (solo FPV)
 		const bool lbJustPressed = (g_Pad.btnLB && !g_PadPrev.btnLB);
 		if (lbJustPressed && g_FPV)
 		{
@@ -9263,7 +9263,7 @@ void UpdateGamepadActions(GLFWwindow* window)
 	}
 	else if (act_state == GameState::MENU)
 	{
-		// START o B → volver al juego
+		// START o B , volver al juego
 		if (startJustPressed || bJustPressed)
 		{
 			HandleEscapeKey(window);
@@ -9468,7 +9468,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 		// ─────────────────────────────────────────────────────────────
 		if (action == GLFW_PRESS && g_FPV && mods == 0 && key == GLFW_KEY_E)
 		{
-			// 0) Si el cofre està obert → el tanquem
+			// 0) Si el cofre està obert , el tanquem
 			if (cofre_on)
 			{
 				cofre_on = false;
@@ -9486,9 +9486,9 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				fprintf(stderr, "[COFRE] Tancant cofre\n");
 				return;
 			}
-			// 1) Si el mapa de palanques està obert → tancar-lo
-// 1) Si el mapa de palanques està obert → tancar-lo
-// 1) Si el mapa de palanques està obert → tancar-lo
+			// 1) Si el mapa de palanques està obert , tancar-lo
+// 1) Si el mapa de palanques està obert , tancar-lo
+// 1) Si el mapa de palanques està obert , tancar-lo
 			if (g_MapaPalanquesObrit)
 			{
 				// Tanquem la imatge com sempre
@@ -9507,7 +9507,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				return;
 			}
 
-			// 2) Si el document del terra és interactuable → obrir el mapa
+			// 2) Si el document del terra és interactuable  obrir el mapa
 			if (g_MapaPalanquesInteractuable && !g_MapaPalanquesObrit)
 			{
 				// Si ja hi ha una anim de mans en marxa, no fem res per no tallar-la
@@ -13077,7 +13077,7 @@ int main(void)
 			FPV_SetMouseCapture(false);
 			renderFinalJoc(window);
 		}
-		else if (act_state == GameState::LOADING) //pattata
+		else if (act_state == GameState::LOADING) 
 		{
 			g_FVP_move = false;
 			preEstate = GameState::GAME;
@@ -13140,12 +13140,12 @@ int main(void)
 				g_IntroHandsPlayed = false;
 				// ----------------------------------------------------
 
-				previous = glfwGetTime(); // <--- AÑADE ESTA LÍNEA
+				previous = glfwGetTime();
 			}
 		}
 		else if (act_state == GameState::GAME)
 		{
-			// Si NO hi ha cap HUD "gran" obert → podem moure'ns en FPV
+			// Si NO hi ha cap HUD "gran" obert , podem moure'ns en FPV
 			if (!cofre_on && !g_InventariObert && !g_MapaPalanquesObrit && !cofre_final_on)
 			{
 				FPV_SetMouseCapture(true);
@@ -13153,7 +13153,7 @@ int main(void)
 			}
 			else
 			{
-				// Cofre, inventari o mapa de palanques oberts → bloquejar FPV
+				// Cofre, inventari o mapa de palanques oberts , bloquejar FPV
 				FPV_SetMouseCapture(false);
 				g_FVP_move = false;
 			}
@@ -13190,14 +13190,14 @@ int main(void)
 			glfwPollEvents();
 
 			// ─────────────────────────────────────────────────────────────
-			// 1) ESCENA 3D + SOBEL (sense ImGui) → OnPaint
+			// 1) ESCENA 3D + SOBEL (sense ImGui) , OnPaint
 			//    (aquí es fa el glClear, Draw sala, props, Sobel, mà, etc.)
 			// ─────────────────────────────────────────────────────────────
 			OnPaint(window, dt_juego);
 
 			// ─────────────────────────────────────────────────────────────
 			// 2) HUD / INTERFÍCIES ImGui (Press E, cofre, inventari, etc.)
-			//    → draw_scene construeix i pinta l'ImGui DAMUNT de l'escena
+			//    , draw_scene construeix i pinta l'ImGui DAMUNT de l'escena
 			// ─────────────────────────────────────────────────────────────
 			draw_scene();
 			//UpdateFadeSystem(dt);
@@ -13209,7 +13209,7 @@ int main(void)
 			//UpdatePersistentRays(dt);
 
 			// ─────────────────────────────────────────────────────────────
-			// 4) SWAP BUFFERS → presentem escena 3D + HUD ImGui
+			// 4) SWAP BUFFERS , presentem escena 3D + HUD ImGui
 			// ─────────────────────────────────────────────────────────────
 			glfwMakeContextCurrent(window);
 			glfwSwapBuffers(window);
