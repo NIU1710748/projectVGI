@@ -1916,13 +1916,13 @@ void ActualitzaAnimacioMans(float /*dt*/)
 			fprintf(stderr, "[ESCAPE] Celebrate END -> StartEndgameCutscene()\n");
 
 			StartEndgameCutscene();   // aquí ya TP + cutscene final
-			return;                   // ✅ no colas este frame
+			return;                   
 		}
 
 
 		// ============================================================
 		// 1) STATE MACHINE DE LA LLANTERNA (9 -> 7 -> ON) / (8 -> OFF)
-		//    (prioridad absoluta: si aquí arrancamos otra anim, RETURN)
+		//    
 		// ============================================================
 
 		// TURNING_ON:
@@ -1932,14 +1932,14 @@ void ActualitzaAnimacioMans(float /*dt*/)
 		{
 			if (g_CurrentHandAnim == 9)
 			{
-				// Si por otro lado habías encolado 7, lo limpiamos para que NO se repita
+				// Limpiar cola del 7 para que NO se repita
 				if (g_QueuedHandAnim == 7) g_QueuedHandAnim = -1;
 				while (!g_CuaAnimMans.empty() && g_CuaAnimMans.front() == 7)
 					g_CuaAnimMans.pop_front();
 
 				StartHandAnimation(7);
 				fprintf(stderr, "[FLASH] 9 END -> Start 7\n");
-				return; // IMPORTANTÍSIMO: no sigas con colas este frame
+				return; // No seguir con colas este frame
 			}
 
 			if (g_CurrentHandAnim == 7)
@@ -1948,8 +1948,7 @@ void ActualitzaAnimacioMans(float /*dt*/)
 				g_FlashAnimState = FlashlightAnimState::NONE;
 				fprintf(stderr, "[FLASH] 7 END -> Headlight ON\n");
 
-				// NO reinicies la 7 aquí (eso era lo que causaba repetición).
-				// Si quieres “mantener” la linterna visible, ya se queda en el último frame.
+
 			}
 		}
 
@@ -2046,7 +2045,6 @@ void TeleportaJugador(const glm::vec3& novaPos, float yawNou, float pitchNou)
 
 
 
-// mamahuevo
 
 static bool g_EndgameCreditsStarted = false;
 
@@ -2188,7 +2186,7 @@ void DibuixaInventari()
 		ImGui::GetWindowDrawList()->AddImage(texId, p0, p1);
 	}
 
-	// ✅ ICONES ESCALATS SEGONS EL FONS (NO LA PANTALLA)
+	// ICONES ESCALATS SEGONS EL FONS (NO LA PANTALLA)
 	float iconSize = winWidth * 0.1f;        //<--- Cambiar
 	float horizontalPadding = iconSize * 0.16f;
 	float verticalPadding = iconSize * 0.15f;
@@ -2396,7 +2394,7 @@ void carregarEscenaInicialMultiObj()
 	glUniform1i(glGetUniformLocation(shader_programID, "flag_invert_y"), tFlag_invert_Y);
 }
 
-void carregarEscenaInicial() // popo
+void carregarEscenaInicial()
 {
 	const char* pathFix = "../scenario/Scenario.obj";
 
@@ -2479,7 +2477,7 @@ static void ActualitzaSobelHighlight()
 	if (bestIdx >= 0)
 	{
 		g_SobelNomHighlight = g_ZonesSobel[bestIdx].nomObj;
-		if (g_SobelNomHighlight.rfind("INTERACTUABLE", 0) == 0) // Mis cambios
+		if (g_SobelNomHighlight.rfind("INTERACTUABLE", 0) == 0)
 		{
 			g_InspeccioDisponible = true;
 		}
@@ -2500,7 +2498,7 @@ static void InitZonesSobel()
 	// ---------- ANCLA ----------
 	{
 		ZonaSobelInteractiva z;
-		z.nomObj = "INTERACTUABLE_ancla.obj"; // IMPORTANTÍSIMO: que sea EXACTO al getName()
+		z.nomObj = "INTERACTUABLE_ancla.obj";
 		z.pos = glm::vec3(-6.46f, 8.30f, 6.24f);
 		z.halfX = half;
 		z.halfZ = half;
@@ -2511,7 +2509,7 @@ static void InitZonesSobel()
 	// ---------- ESPADA ----------
 	{
 		ZonaSobelInteractiva z;
-		z.nomObj = "INTERACTUABLE_espada.obj"; // o "INTERACTUABLE_espada_gir.obj" si ese es el real
+		z.nomObj = "INTERACTUABLE_espada.obj";
 		z.pos = glm::vec3(-2.23f, 8.30f, -3.31f);
 		z.halfX = half;
 		z.halfZ = half;
@@ -2522,7 +2520,7 @@ static void InitZonesSobel()
 	// ---------- BOTELLA ----------
 	{
 		ZonaSobelInteractiva z;
-		z.nomObj = "INTERACTUABLE_botella.obj"; // o "INTERACTUABLE_botella_gir.obj" si ese es el real
+		z.nomObj = "INTERACTUABLE_botella.obj";
 		z.pos = glm::vec3(5.15f, 8.30f, -2.56f);
 		z.halfX = half;
 		z.halfZ = half;
@@ -2533,7 +2531,7 @@ static void InitZonesSobel()
 	// ---------- PALA ----------
 	{
 		ZonaSobelInteractiva z;
-		z.nomObj = "INTERACTUABLE_pala.obj"; // pon el nombre exacto
+		z.nomObj = "INTERACTUABLE_pala.obj";
 		z.pos = glm::vec3(1.89f, 8.30f, 6.47f);
 		z.halfX = half;
 		z.halfZ = half;
@@ -2545,7 +2543,7 @@ static void InitZonesSobel()
 	// ---------- PORTA 1 ----------
 	{
 		ZonaSobelInteractiva z;
-		z.nomObj = "puerta1.obj";                 // nombre exacto
+		z.nomObj = "puerta1.obj";
 		z.pos = glm::vec3(5.19f, 5.20f, 0.29f);
 		z.halfX = 0.9f;
 		z.halfZ = 0.9f;
@@ -2670,7 +2668,7 @@ static void InitZonesSobel()
 		z.pos = glm::vec3(-9.98f, 11.70f, 4.80f);
 		z.halfX = 0.9f;
 		z.halfZ = 0.9f;
-		z.yTol = 1.0f;  // si no engancha bien en esa planta, prueba 1.5f o 2.0f
+		z.yTol = 1.0f;  
 		g_ZonesSobel.push_back(z);
 	}
 
@@ -2824,7 +2822,7 @@ static void EnterFPV() {
 	InitZonesSobel();
 	OnVistaSkyBox();
 
-	for (COBJModel* obj : vObOBJ)//pattata; solucion provisional
+	for (COBJModel* obj : vObOBJ)
 	{
 		if (obj->getName() == "cofre_arriba_abierto.obj")  obj->changeRendering(false);
 		else if (obj->getName() == "cofre.obj")  obj->changeRendering(false);
@@ -2834,7 +2832,7 @@ static void EnterFPV() {
 		else if (obj->getName() == "puerta2_open.obj")  obj->changeRendering(false);
 		else if (obj->getName() == "puerta3_open.obj")  obj->changeRendering(false);
 		else if (obj->getName() == "puerta4_open.obj")  obj->changeRendering(false);
-		else if (obj->getName() == "palanca1_black_down.obj")  obj->changeRendering(false);  //PALANCAZZZ esto no tocar, solo pa entender
+		else if (obj->getName() == "palanca1_black_down.obj")  obj->changeRendering(false);
 		else if (obj->getName() == "palanca2_white_down.obj")  obj->changeRendering(false);
 		else if (obj->getName() == "palanca3_black_down.obj")  obj->changeRendering(false);
 		else if (obj->getName() == "palanca4_black_down.obj")  obj->changeRendering(false);
@@ -2861,7 +2859,7 @@ static void EnterFPV() {
 	g_StepLenSprint = 3.00f;
 	g_BobSmoothingHz = 12.0f;
 
-	InitZonesSobel();   // <-- ESTA ES LA CLAVE
+	InitZonesSobel();
 
 	fpv_started = true;
 }
@@ -9498,7 +9496,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				FPV_SetMouseCapture(true);
 				fprintf(stderr, "[MAPA PALANQUES] Tancant mapa\n");
 
-				// 👉 Lançar animació de tancar quadern (11) si les mans estan lliures
+				//  Lançar animació de tancar quadern (11) si les mans estan lliures
 				if (!g_HandPlaying)
 				{
 					StartHandAnimation(HAND_ANIM_MAPA_TANCAR);
@@ -9521,8 +9519,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 					glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 				}
 
-				// 👉 Ara NO obrim el mapa immediatament.
-				// En comptes d'això: marquem que, quan acabi l'animació 12,
+				//  Quan acabi l'animació 12,
 				// s'obrirà el quadern de pistes.
 				g_PendingMapaOpenAfterAnim = true;
 				StartHandAnimation(HAND_ANIM_MAPA_OBRIR);

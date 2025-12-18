@@ -215,67 +215,67 @@ void dibuixa_EscenaGL(GLuint sh_programID, bool eix, GLuint axis_Id, CMask3D rei
 
 			if (objecteOBJ->getName() == "Moby_Raw_Model.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "patoso.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "ducki.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "INTERACTUABLE_espada_gir.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "INTERACTUABLE_ancla_gir.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "INTERACTUABLE_calavera_gir.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "INTERACTUABLE_botella_gir.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "INTERACTUABLE_barril_gir.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "INTERACTUABLE_pala_gir.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "INTERACTUABLE_bomba_gir.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
 			if (objecteOBJ->getName() == "INTERACTUABLE_hacha_gir.obj")
 			{
-				// Saltamos este objecte → no es dibuixa
+				// Saltamos este objecte , no es dibuixa
 				continue;
 			}
 
