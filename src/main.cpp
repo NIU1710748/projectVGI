@@ -1887,6 +1887,7 @@ void ActualitzaAnimacioMans(float /*dt*/)
 				{
 					if (obj->getName() == "puerta3.obj")      obj->changeRendering(false);
 					if (obj->getName() == "puerta3_open.obj") obj->changeRendering(true);
+					PlaySoundOnce(ID_WOOD);
 				}
 				for (auto* hitbox : vHitboxOBJ)
 					if (hitbox->getName() == "HITBOX_WALL15_puerta.obj")
