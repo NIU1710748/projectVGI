@@ -50,7 +50,7 @@ enum class TipusInteraccioContext {
 	PORTA_CAPADALT,
 	PORTA_SUPERIOR_ENT,
 	PORTA_SUPERIOR_SURT,
-	PALANCA_1, //PALANCAZZZ
+	PALANCA_1,
 	PALANCA_2,
 	PALANCA_3,
 	PALANCA_4,
@@ -113,7 +113,6 @@ glm::vec3 g_PosPortaSuperiorSortida(-7.0f, 8.70f, -0.73f);
 float     g_RadiPortaSuperiorSortida = 1.5f;
 
 
-// PALANCAZZZ 
 glm::vec3 g_PosPalanca_1(-8.50f, 1.70f, -2.00f);
 float g_RadiPalancas = 1.0f;
 
@@ -4709,7 +4708,7 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 					}
 				}
 
-				if (dinsZona3D(g_FPVPos, g_PosPalanca_1, g_RadiPalancas, halfH)) // PALANCAZZZ  falten les 7 demes, nomes canvia TipusIteraccioContext, i el g_PosPorta i g_posRadio
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_1, g_RadiPalancas, halfH))
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_1;
 			}
@@ -4739,12 +4738,12 @@ void FPV_UpdateMovement(GLFWwindow* window, float dt)
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_6;
 				}
 
-				if (dinsZona3D(g_FPVPos, g_PosPalanca_7, g_RadiPalancas, halfH)) // PALANCAZZZ  falten les 7 demes, nomes canvia TipusIteraccioContext, i el g_PosPorta i g_posRadio
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_7, g_RadiPalancas, halfH))
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_7;
 				}
 
-				if (dinsZona3D(g_FPVPos, g_PosPalanca_8, g_RadiPalancas, halfH)) // PALANCAZZZ  falten les 7 demes, nomes canvia TipusIteraccioContext, i el g_PosPorta i g_posRadio
+				if (dinsZona3D(g_FPVPos, g_PosPalanca_8, g_RadiPalancas, halfH))
 				{
 					g_InteraccioDisponible = true; g_InteraccioContext = TipusInteraccioContext::PALANCA_8;
 				}
@@ -5300,11 +5299,11 @@ void configura_Escena()
 	GTMatrix = instancia(transf, TG, TGF);
 }
 
-std::vector<bool> solucioPalanques = { true, false, true, true, false, true, false, false }; //PALANCAZZZ
+std::vector<bool> solucioPalanques = { true, false, true, true, false, true, false, false };
 std::vector<bool> actualPalanques = { true, true, true, true, true, true, true, true };  // True palanca arriba, False palanca abajo
 
-bool g_CofreItemAfegitPalanques = false;  // PALANCAZZZ no hace falta tocar nada de aqui
-void DibuixaJocPalanques()// PALANCAZZZ
+bool g_CofreItemAfegitPalanques = false;
+void DibuixaJocPalanques()
 {
 	ImGuiIO& io = ImGui::GetIO();
 	if (joc_palanques_finalitzat && g_ShowReward)
@@ -9727,7 +9726,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 					}
 				}
 				break;
-				case TipusInteraccioContext::PALANCA_1:  // PALANCAZZZ per jugar amb teclat
+				case TipusInteraccioContext::PALANCA_1:  // per jugar amb teclat
 				{
 					PlaySoundOnce(ID_LEVER);
 					actualPalanques[0] = !actualPalanques[0];
@@ -9740,7 +9739,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 					std::cout << std::boolalpha << actualPalanques[0] << std::endl;
 				}break;
 
-				case TipusInteraccioContext::PALANCA_2:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				case TipusInteraccioContext::PALANCA_2:
 				{
 					PlaySoundOnce(ID_LEVER);
 					actualPalanques[1] = !actualPalanques[1];
@@ -9753,7 +9752,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				}
 				break;
 
-				case TipusInteraccioContext::PALANCA_3:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				case TipusInteraccioContext::PALANCA_3:
 				{
 					PlaySoundOnce(ID_LEVER);
 					actualPalanques[2] = !actualPalanques[2];
@@ -9766,7 +9765,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				}
 				break;
 
-				case TipusInteraccioContext::PALANCA_4:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				case TipusInteraccioContext::PALANCA_4:
 				{
 					PlaySoundOnce(ID_LEVER);
 					actualPalanques[3] = !actualPalanques[3];
@@ -9779,7 +9778,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				}
 				break;
 
-				case TipusInteraccioContext::PALANCA_5:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				case TipusInteraccioContext::PALANCA_5:
 				{
 					PlaySoundOnce(ID_LEVER);
 					actualPalanques[4] = !actualPalanques[4];
@@ -9792,7 +9791,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				}
 				break;
 
-				case TipusInteraccioContext::PALANCA_6:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				case TipusInteraccioContext::PALANCA_6:
 				{
 					PlaySoundOnce(ID_LEVER);
 					actualPalanques[5] = !actualPalanques[5];
@@ -9805,7 +9804,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				}
 				break;
 
-				case TipusInteraccioContext::PALANCA_7:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				case TipusInteraccioContext::PALANCA_7:
 				{
 					PlaySoundOnce(ID_LEVER);
 					actualPalanques[6] = !actualPalanques[6];
@@ -9818,7 +9817,7 @@ void OnKeyDown(GLFWwindow* window, int key, int scancode, int action, int mods)
 				}
 				break;
 
-				case TipusInteraccioContext::PALANCA_8:  // PALANCAZZZ falten les demes Palanques, per jugar amb Gamepad
+				case TipusInteraccioContext::PALANCA_8:
 				{
 					PlaySoundOnce(ID_LEVER);
 					actualPalanques[7] = !actualPalanques[7];
